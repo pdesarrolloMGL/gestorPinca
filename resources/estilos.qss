@@ -1,0 +1,59 @@
+/* Estilo general */
+QWidget {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 14px;
+}
+
+/* Botones principales */
+QPushButton {
+    background-color: #007bff;
+    color: white;
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin: 4px;
+    font-size: 16px;
+}
+
+QPushButton:hover {
+    background-color: #0056b3;
+}
+
+#Sidebar QPushButton#BotonSalir {
+    background-color: #dc3545;
+    color: white;
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 120px;
+}
+#Sidebar QPushButton#BotonSalir:hover {
+    background-color: #a71d2a;
+}
+
+
+/* Barra lateral */
+#Sidebar {
+    background-color: #474747;
+}
+
+#Sidebar QPushButton {
+    background-color: transparent;
+    color: white;
+    text-align: left;
+    padding: 12px;
+    border: none;
+}
+
+#Sidebar QPushButton:hover {
+    background-color: #495057;
+}
+
+/* Títulos */
+QLabel#Titulo {
+    font-size: 20px;
+    font-weight: bold;
+    color: #212529;
+}
+
+
+
