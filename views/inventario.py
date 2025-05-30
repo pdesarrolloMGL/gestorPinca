@@ -1,10 +1,10 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
-    QPushButton, QFileDialog, QHeaderView, QMessageBox, QHBoxLayout, QSizePolicy
+    QPushButton, QHeaderView, QMessageBox, QHBoxLayout, QSizePolicy, QLabel, QLineEdit
 )
 from PyQt5.QtCore import Qt
-import pandas as pd
-import os
+from PyQt5.QtGui import QIcon
+from data.connection import get_connection
 
 class Inventario(QWidget):
     def __init__(self):
@@ -13,81 +13,161 @@ class Inventario(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
 
-        # Botones en una sola fila, centrados y de tamaño fijo
-        botones_layout = QHBoxLayout()
-        botones_layout.setAlignment(Qt.AlignCenter)
+        # Título dinámico
+        self.titulo_label = QLabel("Inventario de Productos")
+        self.titulo_label.setObjectName("TituloInventario")
+        self.titulo_label.setAlignment(Qt.AlignCenter)
+        main_layout.addWidget(self.titulo_label)
 
-        btn_cargar = QPushButton("Cargar Inventario Excel")
-        btn_cargar.setStyleSheet(
-            "background-color: #17a2b8; color: white; border-radius: 8px; padding: 8px 16px;"
-        )
-        btn_cargar.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        btn_cargar.clicked.connect(self.cargar_excel)
-        botones_layout.addWidget(btn_cargar)
+        # Buscador
+        buscador_layout = QHBoxLayout()
+        buscador_layout.setAlignment(Qt.AlignCenter)
+        self.buscador = QLineEdit()
+        self.buscador.setObjectName("BuscadorInventario")
+        self.buscador.setPlaceholderText("Buscar por nombre, código o tipo...")
+        self.buscador.textChanged.connect(self.buscar)
+        btn_buscar = QPushButton("Buscar")
+        btn_buscar.setObjectName("BtnBuscarInventario")
+        btn_buscar.clicked.connect(self.buscar)
+        buscador_layout.addWidget(self.buscador)
+        buscador_layout.addWidget(btn_buscar)
+        main_layout.addLayout(buscador_layout)
 
-        btn_borrar = QPushButton("Eliminar fila seleccionada")
-        btn_borrar.setStyleSheet(
-            "background-color: #ffc107; color: black; border-radius: 8px; padding: 8px 16px;"
-        )
-        btn_borrar.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        btn_borrar.clicked.connect(self.eliminar_fila)
-        botones_layout.addWidget(btn_borrar)
+        # Botones para elegir la tabla
+        botones_tabla_layout = QHBoxLayout()
+        botones_tabla_layout.setAlignment(Qt.AlignCenter)
+        
+        btn_materia = QPushButton("Materia Prima")
+        btn_materia.setObjectName("btnInventario")
+        btn_materia.clicked.connect(self.mostrar_materia_prima)
+        botones_tabla_layout.addWidget(btn_materia)
 
-        main_layout.addLayout(botones_layout)
+        btn_productos = QPushButton("Productos")
+        btn_productos.setObjectName("btnInventario")
+        btn_productos.clicked.connect(self.mostrar_productos)
+        botones_tabla_layout.addWidget(btn_productos)
 
-        # Tabla expandible y centrada
+        main_layout.addLayout(botones_tabla_layout)
+
+        # Tabla en contenedor centrado
         self.table = QTableWidget()
-        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        main_layout.addWidget(self.table)
+        self.table.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding) 
+        self.table.verticalHeader().setVisible(False)
 
-        # Ruta del Excel
-        self.ruta_excel = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), '..', 'data', 'DUPLICADOS.xlsx')
-        )
-        self.df = None
+        tabla_contenedor = QHBoxLayout()
+        tabla_contenedor.setAlignment(Qt.AlignHCenter)
+        tabla_contenedor.addWidget(self.table)
+        main_layout.addLayout(tabla_contenedor)
 
-        # Cargar automáticamente el archivo al iniciar
-        if os.path.exists(self.ruta_excel):
-            self.df = pd.read_excel(self.ruta_excel)
-            self.mostrar_datos(self.df)
+        # Conexión a la base de datos
+        self.conn = get_connection()
+        self.cursor = self.conn.cursor()
 
-    def cargar_excel(self):
-        archivo, _ = QFileDialog.getOpenFileName(
-            self, "Abrir archivo Excel", "", "Archivos Excel (*.xlsx *.xls)"
-        )
-        if archivo:
-            self.ruta_excel = archivo
-            self.df = pd.read_excel(archivo)
-            self.mostrar_datos(self.df)
+        # Estado para saber qué tabla mostrar
+        self.tabla_actual = "productos"
 
-    def mostrar_datos(self, df):
-        self.table.setRowCount(df.shape[0])
-        self.table.setColumnCount(df.shape[1])
-        self.table.setHorizontalHeaderLabels(df.columns)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        # Formatear "Costo Unitario" como precio si existe
-        try:
-            idx_costo = df.columns.get_loc("Costo Unitario")
-        except KeyError:
-            idx_costo = -1
-        for i in range(df.shape[0]):
-            for j in range(df.shape[1]):
-                valor = df.iat[i, j]
-                if j == idx_costo and pd.notnull(valor):
+        # Mostrar productos al iniciar
+        self.mostrar_productos()
+    
+    def ajustar_tabla_al_contenido(self):
+        self.table.resizeColumnsToContents()
+        self.table.resizeRowsToContents()
+        # Haz que la columna "nombre" sea más ancha
+        for i in range(self.table.columnCount()):
+            header_text = self.table.horizontalHeaderItem(i).text().lower()
+            if header_text == "nombre":
+                self.table.setColumnWidth(i, 350)
+            elif header_text == "tipo":
+                self.table.setColumnWidth(i, 150)
+        ancho_total = sum([self.table.columnWidth(i) for i in range(self.table.columnCount())]) + 20
+        self.table.setMinimumWidth(ancho_total)
+
+    def buscar(self):
+        texto = self.buscador.text().strip().lower()
+        if self.tabla_actual == "productos":
+            self.mostrar_productos(filtro=texto)
+        else:
+            self.mostrar_materia_prima(filtro=texto)
+
+    def mostrar_productos(self, filtro=None):
+        self.tabla_actual = "productos"
+        self.titulo_label.setText("Inventario de Productos")
+        self.cursor.execute("PRAGMA table_info(productos)")
+        columnas_db = [col[1] for col in self.cursor.fetchall()]
+        columnas_esperadas = ["codigo", "nombre", "costo_unitario", "tipo", "cantidad"]
+        for col in columnas_esperadas:
+            if col not in columnas_db:
+                QMessageBox.critical(self, "Error", f"La columna '{col}' no existe en la tabla productos.")
+                return
+
+        query = "SELECT codigo, nombre, costo_unitario, tipo, cantidad FROM productos"
+        params = ()
+        if filtro:
+            query += " WHERE lower(codigo) LIKE ? OR lower(nombre) LIKE ? OR lower(tipo) LIKE ?"
+            params = (f"%{filtro}%", f"%{filtro}%", f"%{filtro}%")
+        self.cursor.execute(query, params)
+        resultados = self.cursor.fetchall()
+        columnas = [desc[0] for desc in self.cursor.description]
+        columnas.append("Eliminar")
+        self.table.setRowCount(len(resultados))
+        self.table.setColumnCount(len(columnas))
+        self.table.setHorizontalHeaderLabels(columnas)
+
+        for i, fila in enumerate(resultados):
+            for j, valor in enumerate(fila):
+                header_text = self.table.horizontalHeaderItem(j).text().lower()
+                if header_text == "costo_unitario":
                     try:
-                        valor = "${:,.2f}".format(float(valor))
+                        valor = float(valor)
+                        valor = "$ {:,.2f}".format(valor)
                     except Exception:
                         pass
                 self.table.setItem(i, j, QTableWidgetItem(str(valor)))
+            # Botón de eliminar
+            btn = QPushButton()
+            btn.setIcon(QIcon("assets/delete.png"))
+            btn.setObjectName("btnEliminar")
+            btn.setToolTip("Eliminar fila")
+            btn.clicked.connect(lambda _, row=i: self.eliminar_fila_por_boton(row, "productos"))
+            self.table.setCellWidget(i, len(columnas)-1, btn)
 
-    def eliminar_fila(self):
-        fila = self.table.currentRow()
-        if fila == -1:
-            QMessageBox.warning(self, "Advertencia", "Selecciona una fila para eliminar.")
-            return
-        # Eliminar del DataFrame
-        self.df = self.df.drop(self.df.index[fila]).reset_index(drop=True)
-        # Guardar en Excel
-        self.df.to_excel(self.ruta_excel, index=False)
-        # Actualizar tabla
-        self.mostrar_datos(self.df)
+        self.ajustar_tabla_al_contenido()
+
+    def mostrar_materia_prima(self, filtro=None):
+        self.tabla_actual = "materia_prima"
+        self.titulo_label.setText("Inventario de Materia Prima")
+        query = "SELECT id, codigo, nombre, descripcion, costo_unitario FROM materia_prima"
+        params = ()
+        if filtro:
+            query += " WHERE lower(codigo) LIKE ? OR lower(nombre) LIKE ?"
+            params = (f"%{filtro}%", f"%{filtro}%")
+        self.cursor.execute(query, params)
+        resultados = self.cursor.fetchall()
+        columnas = [desc[0] for desc in self.cursor.description]
+        columnas.append("Eliminar")
+        self.table.setRowCount(len(resultados))
+        self.table.setColumnCount(len(columnas))
+        self.table.setHorizontalHeaderLabels(columnas)
+
+        for i, fila in enumerate(resultados):
+            for j, valor in enumerate(fila):
+                header_text = self.table.horizontalHeaderItem(j).text().lower()
+                if header_text == "costo_unitario":
+                    try:
+                        valor = float(valor)
+                        valor = "${:,.2f}".format(valor)
+                    except Exception:
+                        pass
+                self.table.setItem(i, j, QTableWidgetItem(str(valor)))
+            # Botón de eliminar
+            btn = QPushButton()
+            btn.setIcon(QIcon("assets/pincalogo.png"))
+            btn.setToolTip("Eliminar fila")
+            btn.clicked.connect(lambda _, row=i: self.eliminar_fila_por_boton(row, "materia_prima"))
+            self.table.setCellWidget(i, len(columnas)-1, btn)
+
+        header = self.table.horizontalHeader()
+        for i in range(self.table.columnCount()):
+            header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
+
+        self.ajustar_tabla_al_contenido()

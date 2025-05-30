@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QStackedWidget
+from PyQt5.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QStackedWidget, QSizePolicy
 from PyQt5.QtCore import Qt
 from views.clientes import Clientes
 from views.costos import Costos
@@ -18,6 +18,7 @@ class Menu(QMainWindow):
         # Vista principal
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
+        central_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         main_layout = QHBoxLayout(central_widget)
 
@@ -53,6 +54,7 @@ class Menu(QMainWindow):
         }
 
         self.stack = QStackedWidget()
+        self.stack.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.stack.addWidget(logo_widget)  # Logo como primera página
         for nombre, widget in botones.items():
             btn = QPushButton(nombre)
