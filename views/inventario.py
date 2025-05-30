@@ -17,13 +17,21 @@ class Inventario(QWidget):
         botones_layout = QHBoxLayout()
         botones_layout.setAlignment(Qt.AlignCenter)
 
-        btn_cargar = QPushButton("Cargar Inventario Excel")
-        btn_cargar.setStyleSheet(
-            "background-color: #17a2b8; color: white; border-radius: 8px; padding: 8px 16px;"
-        )
-        btn_cargar.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        btn_cargar.clicked.connect(self.cargar_excel)
-        botones_layout.addWidget(btn_cargar)
+        # Botones para elegir la tabla
+        botones_tabla_layout = QHBoxLayout()
+        botones_tabla_layout.setAlignment(Qt.AlignCenter)
+        
+        btn_materia = QPushButton("Materia Prima")
+        btn_materia.setObjectName("btnInventario")
+        btn_materia.clicked.connect(self.mostrar_materia_prima)
+        botones_tabla_layout.addWidget(btn_materia)
+
+        btn_productos = QPushButton("Productos")
+        btn_productos.setObjectName("btnInventario")
+        btn_productos.clicked.connect(self.mostrar_productos)
+        botones_tabla_layout.addWidget(btn_productos)
+
+        main_layout.addLayout(botones_tabla_layout)
 
         btn_borrar = QPushButton("Eliminar fila seleccionada")
         btn_borrar.setStyleSheet(
@@ -51,13 +59,16 @@ class Inventario(QWidget):
             self.df = pd.read_excel(self.ruta_excel)
             self.mostrar_datos(self.df)
 
-    def cargar_excel(self):
-        archivo, _ = QFileDialog.getOpenFileName(
-            self, "Abrir archivo Excel", "", "Archivos Excel (*.xlsx *.xls)"
-        )
-        if archivo:
-            self.ruta_excel = archivo
-            self.df = pd.read_excel(archivo)
+    def mostrar_materia_prima(self):
+        # Aquí debes poner la lógica para mostrar la tabla de materia prima
+        if os.path.exists(self.ruta_excel):
+            self.df = pd.read_excel(self.ruta_excel, sheet_name="MATERIAPRIMA")
+            self.mostrar_datos(self.df)
+
+    def mostrar_productos(self):
+        # Aquí debes poner la lógica para mostrar la tabla de productos
+        if os.path.exists(self.ruta_excel):
+            self.df = pd.read_excel(self.ruta_excel, sheet_name="PRODUCTOS")
             self.mostrar_datos(self.df)
 
     def mostrar_datos(self, df):

@@ -55,5 +55,27 @@ QLabel#Titulo {
     color: #212529;
 }
 
+QLabel#TituloInventario {
+    font-size: 28px;
+    font-weight: bold;
+    color: #212529;
+    margin: 12px;
+}
 
+QPushButton#btnEliminarFila {
+    background-color: #dc3545;
+    color: white;
+    border-radius: 8px;
+    padding: 10px 24px;
+    margin: 4px;
+    width: 200px;
+}
 
+QPushButton#btnInventario {
+    background-color: #28a745;
+    color: white;
+    border-radius: 8px;
+    padding: 10px 24px;
+    margin: 4px;
+    width: 150px;
+}
