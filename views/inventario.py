@@ -53,6 +53,7 @@ class Inventario(QWidget):
         self.table = QTableWidget()
         self.table.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding) 
         self.table.verticalHeader().setVisible(False)
+        self.table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         tabla_contenedor = QHBoxLayout()
         tabla_contenedor.setAlignment(Qt.AlignHCenter)
@@ -136,10 +137,19 @@ class Inventario(QWidget):
     def mostrar_materia_prima(self, filtro=None):
         self.tabla_actual = "materia_prima"
         self.titulo_label.setText("Inventario de Materia Prima")
-        query = "SELECT id, codigo, nombre, descripcion, costo_unitario FROM materia_prima"
+        self.cursor.execute("PRAGMA table_info(materia_prima)")
+        columnas_db = [col[1] for col in self.cursor.fetchall()]
+        columnas_esperadas = ["codigo", "nombre", "costo_unitario", "cantidad"]
+        for col in columnas_esperadas:
+            if col not in columnas_db:
+                QMessageBox.critical(self, "Error", f"La columna '{col}' no existe en la tabla materia_prima.")
+                return
+
+        # Solo mostrar materias primas con nombre no vacío
+        query = "SELECT codigo, nombre, costo_unitario, cantidad FROM materia_prima WHERE nombre IS NOT NULL AND nombre != ''"
         params = ()
         if filtro:
-            query += " WHERE lower(codigo) LIKE ? OR lower(nombre) LIKE ?"
+            query += " AND (lower(codigo) LIKE ? OR lower(nombre) LIKE ?)"
             params = (f"%{filtro}%", f"%{filtro}%")
         self.cursor.execute(query, params)
         resultados = self.cursor.fetchall()
@@ -155,19 +165,16 @@ class Inventario(QWidget):
                 if header_text == "costo_unitario":
                     try:
                         valor = float(valor)
-                        valor = "${:,.2f}".format(valor)
+                        valor = "$ {:,.2f}".format(valor)
                     except Exception:
                         pass
                 self.table.setItem(i, j, QTableWidgetItem(str(valor)))
             # Botón de eliminar
             btn = QPushButton()
-            btn.setIcon(QIcon("assets/pincalogo.png"))
+            btn.setIcon(QIcon("assets/delete.png"))
+            btn.setObjectName("btnEliminar")
             btn.setToolTip("Eliminar fila")
             btn.clicked.connect(lambda _, row=i: self.eliminar_fila_por_boton(row, "materia_prima"))
             self.table.setCellWidget(i, len(columnas)-1, btn)
-
-        header = self.table.horizontalHeader()
-        for i in range(self.table.columnCount()):
-            header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
 
         self.ajustar_tabla_al_contenido()
