@@ -45,11 +45,11 @@ class Menu(QMainWindow):
         logo_layout.addStretch()
 
         botones = {
+            "Inventario": Inventario(),
+            "Calculadora": Calculadora(),
             "Clientes": Clientes(),
             "Costos": Costos(),
             "Facturación": Facturacion(),
-            "Inventario": Inventario(),
-            "Calculadora": Calculadora(),
             "Producción": Produccion()
         }
 

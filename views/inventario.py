@@ -15,7 +15,6 @@ class Inventario(QWidget):
 
         # Título dinámico
         self.titulo_label = QLabel("Inventario de Productos")
-        self.titulo_label.setObjectName("TituloInventario")
         self.titulo_label.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(self.titulo_label)
 
@@ -54,6 +53,7 @@ class Inventario(QWidget):
         self.table.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding) 
         self.table.verticalHeader().setVisible(False)
         self.table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # Desactiva el scroll horizontal
 
         tabla_contenedor = QHBoxLayout()
         tabla_contenedor.setAlignment(Qt.AlignHCenter)
@@ -80,7 +80,7 @@ class Inventario(QWidget):
                 self.table.setColumnWidth(i, 350)
             elif header_text == "tipo":
                 self.table.setColumnWidth(i, 150)
-        ancho_total = sum([self.table.columnWidth(i) for i in range(self.table.columnCount())]) + 20
+        ancho_total = sum([self.table.columnWidth(i) for i in range(self.table.columnCount())])
         self.table.setMinimumWidth(ancho_total)
 
     def buscar(self):
@@ -109,21 +109,23 @@ class Inventario(QWidget):
         self.cursor.execute(query, params)
         resultados = self.cursor.fetchall()
         columnas = [desc[0] for desc in self.cursor.description]
+        columnas.insert(0, "N°")  # Agrega el contador al inicio
         columnas.append("Eliminar")
         self.table.setRowCount(len(resultados))
         self.table.setColumnCount(len(columnas))
         self.table.setHorizontalHeaderLabels(columnas)
 
         for i, fila in enumerate(resultados):
+            self.table.setItem(i, 0, QTableWidgetItem(str(i + 1)))  # Contador
             for j, valor in enumerate(fila):
-                header_text = self.table.horizontalHeaderItem(j).text().lower()
+                header_text = self.table.horizontalHeaderItem(j + 1).text().lower()
                 if header_text == "costo_unitario":
                     try:
                         valor = float(valor)
                         valor = "$ {:,.2f}".format(valor)
                     except Exception:
                         pass
-                self.table.setItem(i, j, QTableWidgetItem(str(valor)))
+                self.table.setItem(i, j + 1, QTableWidgetItem(str(valor)))
             # Botón de eliminar
             btn = QPushButton()
             btn.setIcon(QIcon("assets/delete.png"))
@@ -145,7 +147,6 @@ class Inventario(QWidget):
                 QMessageBox.critical(self, "Error", f"La columna '{col}' no existe en la tabla materia_prima.")
                 return
 
-        # Solo mostrar materias primas con nombre no vacío
         query = "SELECT codigo, nombre, costo_unitario, cantidad FROM materia_prima WHERE nombre IS NOT NULL AND nombre != ''"
         params = ()
         if filtro:
@@ -154,21 +155,23 @@ class Inventario(QWidget):
         self.cursor.execute(query, params)
         resultados = self.cursor.fetchall()
         columnas = [desc[0] for desc in self.cursor.description]
+        columnas.insert(0, "N°")  # Agrega el contador al inicio
         columnas.append("Eliminar")
         self.table.setRowCount(len(resultados))
         self.table.setColumnCount(len(columnas))
         self.table.setHorizontalHeaderLabels(columnas)
 
         for i, fila in enumerate(resultados):
+            self.table.setItem(i, 0, QTableWidgetItem(str(i + 1)))  # Contador
             for j, valor in enumerate(fila):
-                header_text = self.table.horizontalHeaderItem(j).text().lower()
+                header_text = self.table.horizontalHeaderItem(j + 1).text().lower()
                 if header_text == "costo_unitario":
                     try:
                         valor = float(valor)
                         valor = "$ {:,.2f}".format(valor)
                     except Exception:
                         pass
-                self.table.setItem(i, j, QTableWidgetItem(str(valor)))
+                self.table.setItem(i, j + 1, QTableWidgetItem(str(valor)))
             # Botón de eliminar
             btn = QPushButton()
             btn.setIcon(QIcon("assets/delete.png"))

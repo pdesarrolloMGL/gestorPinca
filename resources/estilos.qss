@@ -1,14 +1,14 @@
 /* Estilo general */
 QWidget {
-    background-color: #f8f9fa;
+    background-color: #f4f4f4;
     font-family: 'Segoe UI', sans-serif;
     font-size: 14px;
 }
 
 /* Botones principales */
 QPushButton {
-    background-color: #007bff;
-    color: white;
+    background-color: #dbdbdb;
+    color: #333;
     border-radius: 8px;
     padding: 8px 12px;
     margin: 4px;
@@ -16,7 +16,8 @@ QPushButton {
 }
 
 QPushButton:hover {
-    background-color: #0056b3;
+    background-color: #474747;
+    color: white;
 }
 
 #Sidebar QPushButton#BotonSalir {
@@ -50,16 +51,8 @@ QPushButton:hover {
 
 /* Títulos */
 QLabel#Titulo {
-    font-size: 20px;
-    font-weight: bold;
+    font-size: 10px;
     color: #212529;
-}
-
-QLabel#TituloInventario {
-    font-size: 28px;
-    font-weight: bold;
-    color: #212529;
-    margin: 12px;
 }
 
 QPushButton#btnEliminar {
@@ -80,6 +73,10 @@ QPushButton#btnInventario {
     width: 150px;
 }
 
+QPushButton#btnInventario:hover {
+    background-color: #474747;
+    color: white;
+}
 QHeaderView::section {
     background-color: #dbdbdb;
     color: black;
@@ -95,6 +92,7 @@ QLineEdit#BuscadorInventario {
     border-radius: 8px;
     background: #fff;
     font-size: 15px;
+    color: #999;
 }
 
 /* Botón de buscar */
@@ -110,5 +108,40 @@ QPushButton#BtnBuscarInventario {
     border: 1px solid #b4b4b4;
 }
 QPushButton#BtnBuscarInventario:hover {
-    background-color: #cccccc;
+    background-color: #474747;
+    color: white;
 }
+
+/* Select de productos */
+QComboBox {
+    min-width: 220px;
+    max-width: 350px;
+    padding: 7px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    background: #fff;
+    color: #999;
+    font-size: 15px;
+}
+QComboBox:focus {
+    border: 1.5px solid #dbdbdb;
+    background: #fff;
+}
+QComboBox QAbstractItemView {
+    border: 1px solid #ced4da;
+    selection-background-color: #474747;
+    font-size: 15px;
+}
+
+/* Suma total */
+QLabel#SumaTotalLabel {
+    color: #007b55;
+    font-weight: bold;
+    font-size: 18px;
+    padding: 8px 0 0 0;
+    margin-right: 10px;
+}
+
+/* QLineEdit {
+    background-color: #fff; 
+} */
