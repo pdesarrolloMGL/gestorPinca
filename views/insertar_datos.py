@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from data.connection import get_connection
 
-class Costos(QWidget):
+class InsertarDatos(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Insertar Costo")

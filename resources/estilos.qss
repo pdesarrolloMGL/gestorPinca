@@ -46,7 +46,7 @@ QPushButton:hover {
 }
 
 #Sidebar QPushButton:hover {
-    background-color: #495057;
+    background-color: #17191c;
 }
 
 /* Títulos */
@@ -64,13 +64,55 @@ QPushButton#btnEliminar {
     width: 30px;
 }
 
-QPushButton#btnInventario {
+QPushButton#btnEliminar {
+    background-color: #dc3545;
+    color: white;
+    border-radius: 8px;
+    padding: 10px 24px;
+    margin: 4px;
+    width: 30px;
+}
+
+QPushButton#btnEliminar:hover {
+    background-color: #ba1222;
+    color: white;
+}
+
+QPushButton#btnFormulario {
     background-color: #dbdbdb;
     color: black;
     border-radius: 8px;
     padding: 10px 24px;
     margin: 4px;
     width: 150px;
+}
+
+QPushButton#btnFormulario:hover {
+    background-color: #474747;
+    color: white;
+}
+
+QPushButton#btnAgregarInventario {
+    background-color: #77c888;
+    color: black;
+    border-radius: 8px;
+    padding: 10px 24px;
+    margin: 4px;
+    width: 170px;
+}
+
+QPushButton#btnAgregarInventario:hover {
+    background-color: #0f521d;
+    color: white;
+}
+
+QPushButton#btnInventario {
+    background-color: #dbdbdb;
+    color: black;
+    border-radius: 8px;
+    padding: 10px 24px;
+    margin: 4px;
+    width: 170px;
 }
 
 QPushButton#btnInventario:hover {
@@ -142,6 +184,127 @@ QLabel#SumaTotalLabel {
     margin-right: 10px;
 }
 
+/* Estilo de las tablas y select */
+
+QPushButton#btnInventario.active-inventario {
+    background-color: #474747;
+    color: white;
+}
+
+QComboBox QAbstractItemView QScrollBar:vertical {
+    background: #f4f4f4;
+    width: 12px;
+    margin: 0px;
+    border-radius: 6px;
+}
+QComboBox QAbstractItemView QScrollBar::handle:vertical {
+    background: #474747;
+    min-height: 20px;
+    border-radius: 6px;
+}
+QComboBox QAbstractItemView QScrollBar::add-line:vertical,
+QComboBox QAbstractItemView QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QComboBox QAbstractItemView {
+    background: #fff;
+    color: #333;
+    selection-background-color: #474747;
+    selection-color: white;
+    font-size: 15px;
+    border: 1px solid #ced4da;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 32px; /* ancho del botón */
+    border-left: 1px solid #ced4da;
+    background: #dbdbdb;
+}
+
+QComboBox::down-arrow {
+    image: url(assets/down.png); /* Cambia por la ruta de tu icono */
+    width: 18px;
+    height: 18px;
+}
+
+QComboBox::down-arrow:on { /* Cuando está presionado */
+    top: 2px;
+    left: 2px;
+}
+
+#Sidebar QPushButton[active="true"] {
+    background-color: #17191c;
+    color: #fff;
+}
+
 /* QLineEdit {
     background-color: #fff; 
 } */
+
+#CostoMPLabel {
+    background-color: #ffe066;
+    color: #222;
+    font-weight: bold;
+    font-size: 18px;
+    padding: 6px;
+    border-radius: 6px;
+}
+#CostoMODLabel {
+    background-color: #d0ebff;
+    color: #222;
+    font-weight: bold;
+    font-size: 16px;
+    padding: 6px;
+    border-radius: 6px;
+}
+#EnvaseLabel {
+    background-color: #ffd6e0;
+    color: #222;
+    font-weight: bold;
+    font-size: 16px;
+    padding: 6px;
+    border-radius: 6px;
+}
+#EtiquetaLabel {
+    background-color: #e9fac8;
+    color: #222;
+    font-weight: bold;
+    font-size: 16px;
+    padding: 6px;
+    border-radius: 6px;
+}
+#BandejaLabel {
+    background-color: #fff3bf;
+    color: #222;
+    font-weight: bold;
+    font-size: 16px;
+    padding: 6px;
+    border-radius: 6px;
+}
+#PlasticoLabel {
+    background-color: #e7eaf6;
+    color: #222;
+    font-weight: bold;
+    font-size: 16px;
+    padding: 6px;
+    border-radius: 6px;
+}
+#CostoTotalLabel {
+    background-color: #ffe066;
+    color: #222;
+    font-weight: bold;
+    font-size: 18px;
+    padding: 6px;
+    border-radius: 6px;
+}
+#PrecioVentaLabel {
+    background-color: #b2f2bb;
+    color: #222;
+    font-weight: bold;
+    font-size: 18px;
+    padding: 6px;
+    border-radius: 6px;
+}

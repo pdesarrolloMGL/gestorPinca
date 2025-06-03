@@ -9,5 +9,5 @@ if __name__ == "__main__":
         app.setStyleSheet(f.read())
 
     ventana = Menu()
-    ventana.show()
+    # ventana.show()
     sys.exit(app.exec_())

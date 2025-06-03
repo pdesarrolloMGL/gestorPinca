@@ -1,7 +1,7 @@
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QComboBox, QLineEdit, QPushButton
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QComboBox, QLineEdit, QPushButton
 from PyQt5.QtCore import Qt
 
-class FormularioProducto(QDialog):
+class FormularioProducto(QWidget):
     def __init__(self, productos, parent=None):
         super().__init__(parent)
 
@@ -29,5 +29,9 @@ class FormularioProducto(QDialog):
 
         # Botón de aceptar
         self.btn_aceptar = QPushButton("Aceptar")
-        self.btn_aceptar.clicked.connect(self.accept)
+        self.btn_aceptar.clicked.connect(self.calcular_formula)
         main_layout.addWidget(self.btn_aceptar)
+
+    def calcular_formula(self):
+        # Aquí va la lógica de cálculo
+        pass
