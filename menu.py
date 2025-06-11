@@ -1,11 +1,11 @@
 from PyQt5.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QStackedWidget, QSizePolicy
 from PyQt5.QtCore import Qt
-from views.clientes import Clientes
-from views.costos import Costos
-from views.facturacion import Facturacion
+# from views.clientes import Clientes
+# from views.costos import Costos
+# from views.facturacion import Facturacion
 from views.inventario import Inventario
-from views.calculadora import Calculadora
-from views.produccion import Produccion
+# from views.calculadora import Calculadora
+# from views.produccion import Produccion
 from PyQt5.QtGui import QPixmap, QIcon
 
 class Menu(QMainWindow):
@@ -47,13 +47,14 @@ class Menu(QMainWindow):
         # Diccionario para guardar los botones
         self.sidebar_buttons = {}
 
+        # Instancia las vistas, que ahora deben consultar la nueva base de datos
         botones = {
-            "Inventario": Inventario(),
-            "Calculadora": Calculadora(),
-            "Clientes": Clientes(),
-            "Costos": Costos(),
-            "Facturación": Facturacion(),
-            "Producción": Produccion()
+            "Inventario": Inventario()      # Asegúrate que Inventario use la nueva base y modelo
+            # "Calculadora": Calculadora(),
+            # "Clientes": Clientes(),
+            # "Costos": Costos(),
+            # "Facturación": Facturacion(),
+            # "Producción": Produccion()
         }
 
         self.stack = QStackedWidget()
