@@ -7,6 +7,7 @@ class BotoneraTablas(QWidget):
         self.btn_productos = QPushButton("Productos")
         self.btn_materia = QPushButton("Materia Prima")
         self.btn_agregar = QPushButton("Agregar producto")
+        self.btn_agregar.setObjectName("btnAgregarMateriaPrima")  # Asigna el objectName aquí
         layout.addWidget(self.btn_productos)
         layout.addWidget(self.btn_materia)
         layout.addWidget(self.btn_agregar)

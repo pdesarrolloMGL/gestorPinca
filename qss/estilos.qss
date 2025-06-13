@@ -68,11 +68,10 @@ QPushButton#btnEliminar {
     background-color: #dc3545;
     color: white;
     border-radius: 8px;
-    padding: 10px 24px;
+    padding: 8px 24px;
     margin: 4px;
-    width: 30px;
+    min-height: 10px;
 }
-
 QPushButton#btnEliminar:hover {
     background-color: #ba1222;
     color: white;
@@ -308,3 +307,61 @@ QComboBox::down-arrow:on { /* Cuando está presionado */
     padding: 6px;
     border-radius: 6px;
 }
+
+#tituloLabel {
+            font-size: 22px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 18px;
+        }
+        #buscadorWidget {
+            margin-bottom: 10px;
+        }
+        #botoneraTablas {
+            margin-bottom: 10px;
+        }
+        #tablaInventario {
+            background: #f8f9fa;
+            border: 1px solid #bfc9d1;
+            border-radius: 8px;
+            font-size: 14px;
+            selection-background-color: #d1e7dd;
+            gridline-color: #bfc9d1;
+        }
+        #tablaInventario::item {
+            padding: 6px;
+        }
+        QHeaderView::section {
+            background-color: #2c3e50;
+            color: white;
+            font-weight: bold;
+            padding: 6px;
+            border: none;
+        }
+        QPushButton {
+            background-color: #3498db;
+            color: white;
+            border-radius: 5px;
+            padding: 5px 12px;
+        }
+        QPushButton:hover {
+            background-color: #217dbb;
+        }
+        QDialog {
+            background: #f4f6f8;
+        }
+        QLineEdit, QSpinBox {
+            background: #fff;
+            border: 1px solid #bfc9d1;
+            border-radius: 4px;
+            padding: 4px;
+        }
+        #btnAgregarMateriaPrima {
+            background-color: #28a745;
+            color: white;
+            border-radius: 5px;
+            padding: 6px 18px;
+        }
+        #btnAgregarMateriaPrima:hover {
+            background-color: #218838;
+        }

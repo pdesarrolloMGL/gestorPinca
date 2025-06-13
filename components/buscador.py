@@ -9,5 +9,6 @@ class Buscador(QWidget):
         btn = QPushButton("Buscar")
         btn.clicked.connect(lambda: on_search(self.input.text()))
         self.input.returnPressed.connect(lambda: on_search(self.input.text()))
+        self.input.textChanged.connect(on_search)
         layout.addWidget(self.input)
         layout.addWidget(btn)
