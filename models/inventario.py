@@ -57,3 +57,18 @@ class InventarioModel:
             (codigo, tipo)
         )
         self.conn.commit()
+
+    def restar_materia_prima(self, codigo, cantidad_restar):
+        self.cursor.execute(
+            "SELECT cantidad FROM inventario WHERE item_id = (SELECT id FROM item_general WHERE codigo = ? AND UPPER(tipo) = 'MATERIA PRIMA')",
+            (codigo,)
+        )
+        actual = self.cursor.fetchone()
+        actual_cantidad = actual[0] if actual and actual[0] is not None else 0
+        if cantidad_restar > actual_cantidad:
+            raise ValueError(f"No puede restar más de la cantidad actual ({actual_cantidad}).")
+        self.cursor.execute(
+            "UPDATE inventario SET cantidad = IFNULL(cantidad,0) - ? WHERE item_id = (SELECT id FROM item_general WHERE codigo = ? AND UPPER(tipo) = 'MATERIA PRIMA')",
+            (cantidad_restar, codigo)
+        )
+        self.conn.commit()

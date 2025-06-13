@@ -1,27 +1,27 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QComboBox, QTableWidget, QTableWidgetItem,
-    QHBoxLayout, QStackedWidget, QHeaderView, QSizePolicy, QLineEdit, QPushButton, QFrame
+    QHBoxLayout, QStackedWidget, QHeaderView, QSizePolicy, QLineEdit, QPushButton
 )
 from PyQt5.QtCore import Qt
-from data.connection import get_connection
+from controllers.formulaciones_controller import FormulacionesController
 
-class Calculadora(QWidget):
+class Formulaciones(QWidget):
     def __init__(self):
         super().__init__()
-        self.conn = get_connection()
-        self.cursor = self.conn.cursor()
+        self.controller = FormulacionesController()
 
         # StackedWidget para alternar entre pantallas
         self.stacked = QStackedWidget(self)
 
-        # Pantalla principal (calculadora)
-        self.pantalla_calculadora = QWidget()
-        main_layout = QVBoxLayout(self.pantalla_calculadora)
+        # Pantalla principal (formulaciones)
+        self.pantalla_formulaciones = QWidget()
+        main_layout = QVBoxLayout(self.pantalla_formulaciones)
         main_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
 
         # Título
         titulo = QLabel("Consulta de Fórmula de Producto")
         titulo.setAlignment(Qt.AlignCenter)
+        titulo.setObjectName("Titulo")
         main_layout.addWidget(titulo)
 
         # Layout horizontal para select y botón
@@ -31,7 +31,7 @@ class Calculadora(QWidget):
         # ComboBox para seleccionar producto
         self.producto_combo = QComboBox()
         self.producto_combo.addItem("Seleccione un producto...", None)
-        self.productos = self.obtener_productos()
+        self.productos = self.controller.get_productos()
         for prod_id, nombre in self.productos:
             self.producto_combo.addItem(nombre, prod_id)
         self.producto_combo.currentIndexChanged.connect(self.mostrar_formula_producto)
@@ -50,7 +50,7 @@ class Calculadora(QWidget):
 
         main_layout.addLayout(selector_layout)
 
-        # --- PRIMERO LA TABLA PRINCIPAL ARRIBA ---
+        # Tabla principal
         tabla_layout = QVBoxLayout()
         tabla_layout.setSpacing(0)
         tabla_layout.setContentsMargins(0, 0, 0, 0)
@@ -66,18 +66,15 @@ class Calculadora(QWidget):
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         tabla_layout.addWidget(self.table)
 
-        # Suma total de materias primas justo debajo de la tabla, resaltada
+        # Suma total de materias primas
         self.total_label = QLabel("TOTAL COSTO MATERIA PRIMA: $ 0.00")
         self.total_label.setObjectName("SumaTotalLabel")
         self.total_label.setAlignment(Qt.AlignRight)
-        self.total_label.setStyleSheet(
-            "background-color: #ffe066; color: #222; font-weight: bold; font-size: 18px; padding: 6px; border-radius: 6px;"
-        )
         tabla_layout.addWidget(self.total_label)
 
         main_layout.addLayout(tabla_layout)
 
-        # --- ABAJO, DATOS TÉCNICOS Y COSTOS EN LAYOUT HORIZONTAL ---
+        # Datos técnicos y costos
         tablas_pequenas_layout = QHBoxLayout()
         tablas_pequenas_layout.setAlignment(Qt.AlignTop)
 
@@ -96,7 +93,7 @@ class Calculadora(QWidget):
         self.datos_tecnicos_tabla.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         tablas_pequenas_layout.addWidget(self.datos_tecnicos_tabla)
 
-        # Widget para mostrar los costos y valores (no tabla)
+        # Widget para mostrar los costos y valores
         self.costos_widget = QWidget()
         self.costos_layout = QVBoxLayout(self.costos_widget)
         self.costos_layout.setAlignment(Qt.AlignTop)
@@ -107,29 +104,19 @@ class Calculadora(QWidget):
         main_layout.addLayout(tablas_pequenas_layout)
 
         # Agrega la pantalla principal al stacked
-        self.stacked.addWidget(self.pantalla_calculadora)
+        self.stacked.addWidget(self.pantalla_formulaciones)
 
         # Layout principal de Calculadora
         layout_principal = QVBoxLayout(self)
         layout_principal.addWidget(self.stacked)
 
-        # Maximiza la ventana al abrir
         self.showMaximized()
-
-    def obtener_productos(self):
-        self.cursor.execute("SELECT id, nombre FROM productos")
-        return self.cursor.fetchall()
 
     def mostrar_formula_producto(self):
         prod_id = self.producto_combo.currentData()
 
         # Obtener volumen original del producto
-        volumen_original = None
-        if prod_id:
-            self.cursor.execute("SELECT volumen FROM productos WHERE id = ?", (prod_id,))
-            row = self.cursor.fetchone()
-            if row:
-                volumen_original = float(row[0]) if row[0] is not None else None
+        volumen_original = self.controller.get_volumen_original(prod_id) if prod_id else None
 
         # Volumen personalizado (si el usuario lo ingresa)
         volumen_personalizado = self.volumen_input.text().replace(",", ".")
@@ -141,12 +128,7 @@ class Calculadora(QWidget):
         # Mostrar datos técnicos del producto
         self.datos_tecnicos_tabla.setRowCount(0)
         if prod_id:
-            self.cursor.execute("""
-                SELECT
-                    viscosidad, p_g, color, brillo_60, secado, cubrimiento, molienda, ph, poder_tintoreo
-                FROM productos WHERE id = ?
-            """, (prod_id,))
-            datos = self.cursor.fetchone()
+            datos = self.controller.get_datos_tecnicos(prod_id)
             nombres = [
                 "VISCOSIDAD", "P / G", "COLOR", "BRILLO 60°", "SECADO",
                 "CUBRIMIENTO", "MOLIENDA", "PH", "PODER TINTOREO"
@@ -170,14 +152,8 @@ class Calculadora(QWidget):
             self.total_label.setText("TOTAL COSTO MATERIA PRIMA: $ 0.00")
             return
 
-        # Obtener materias primas asociadas al producto (ignorando pasos)
-        self.cursor.execute("""
-            SELECT mp.codigo, mp.nombre, mp.costo_unitario, pmp.cantidad
-            FROM producto_materia_prima pmp
-            JOIN materia_prima mp ON pmp.materia_prima_id = mp.id
-            WHERE pmp.producto_id = ?
-        """, (prod_id,))
-        materias = self.cursor.fetchall()
+        # Obtener materias primas asociadas al producto
+        materias = self.controller.get_materias_primas(prod_id)
 
         # Si hay volumen personalizado, recalcula cantidades
         factor_volumen = 1.0
@@ -196,8 +172,8 @@ class Calculadora(QWidget):
         for i, (codigo, nombre, costo_unitario, cantidad) in enumerate(materias):
             cantidad_ajustada = float(cantidad) * factor_volumen
             self.table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
-            self.table.setItem(i, 2, QTableWidgetItem(str(codigo)))
-            self.table.setItem(i, 1, QTableWidgetItem(str(nombre)))
+            self.table.setItem(i, 1, QTableWidgetItem(str(codigo)))
+            self.table.setItem(i, 2, QTableWidgetItem(str(nombre)))
             # Formato moneda para costo unitario
             try:
                 costo_unitario_fmt = "$ {:,.2f}".format(float(costo_unitario))
@@ -222,12 +198,10 @@ class Calculadora(QWidget):
 
         self.total_label.setText(f"TOTAL COSTO MATERIA PRIMA: $ {suma_total:,.2f}")
 
-        # Obtener costos fijos de producto_costos
-        self.cursor.execute("""
-            SELECT costo_mp_kg, costo_mp_galon, costo_mod, envase, etiqueta, bandeja, plastico
-            FROM producto_costos WHERE producto_id = ?
-        """, (prod_id,))
-        costos = self.cursor.fetchone()
+        # Obtener costos fijos de costos_produccion
+        costos = self.controller.get_costos_fijos(prod_id)
+        costo_mp_kg = costos[0] if costos else 0
+        costo_mp_galon = costos[1] if costos else 0
         costo_mod = costos[2] if costos else 0
         envase = costos[3] if costos else 0
         etiqueta = costos[4] if costos else 0
@@ -235,8 +209,6 @@ class Calculadora(QWidget):
         plastico = costos[6] if costos else 0
 
         # Cálculo de costo_mp_kg o costo_mp_galon y costo_total
-        costo_mp_kg = None
-        costo_mp_galon = None
         costo_total = None
         precio_venta = None
 
@@ -313,13 +285,15 @@ class Calculadora(QWidget):
         self.costos_layout.addLayout(fila2)
 
     def es_producto_por_kg(self, prod_id):
-        # Puedes personalizar esta función según tu lógica de negocio
+        # Personaliza según tu lógica de negocio
         # Ejemplo: si el nombre contiene 'KG' o es de cierto tipo
-        self.cursor.execute("SELECT nombre FROM productos WHERE id = ?", (prod_id,))
-        nombre = self.cursor.fetchone()
-        if nombre and "PASTA" not in nombre[0].upper():
+        nombre = None
+        for pid, n in self.productos:
+            if pid == prod_id:
+                nombre = n
+                break
+        if nombre and "PASTA" not in nombre.upper():
             return False  # Por defecto, galón
-        # Si quieres que algunos productos sean por kg, ajusta aquí
         return True
 
     def es_numero(self, valor):
@@ -327,4 +301,4 @@ class Calculadora(QWidget):
             float(valor)
             return True
         except (TypeError, ValueError):
-            return False
+            return False    

@@ -5,21 +5,6 @@ QWidget {
     font-size: 14px;
 }
 
-/* Botones principales */
-QPushButton {
-    background-color: #dbdbdb;
-    color: #333;
-    border-radius: 8px;
-    padding: 8px 12px;
-    margin: 4px;
-    font-size: 16px;
-}
-
-QPushButton:hover {
-    background-color: #474747;
-    color: white;
-}
-
 #Sidebar QPushButton#BotonSalir {
     background-color: #dc3545;
     color: white;
@@ -45,6 +30,16 @@ QPushButton:hover {
     border: none;
 }
 
+QPushButton#btnRestarMateriaPrima {
+    background-color: #e74c3c;
+    color: white;
+    border-radius: 5px;
+    padding: 6px 18px;
+}
+QPushButton#btnRestarMateriaPrima:hover {
+    background-color: #c0392b;
+}
+
 #Sidebar QPushButton:hover {
     background-color: #17191c;
 }
@@ -59,18 +54,7 @@ QPushButton#btnEliminar {
     background-color: #dc3545;
     color: white;
     border-radius: 8px;
-    padding: 10px 24px;
-    margin: 4px;
-    width: 30px;
-}
-
-QPushButton#btnEliminar {
-    background-color: #dc3545;
-    color: white;
-    border-radius: 8px;
-    padding: 8px 24px;
-    margin: 4px;
-    min-height: 10px;
+    padding: 5px;
 }
 QPushButton#btnEliminar:hover {
     background-color: #ba1222;

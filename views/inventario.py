@@ -42,10 +42,17 @@ class Inventario(QWidget):
         self.btn_sumar_materia.clicked.connect(self.abrir_sumar_materia_prima)
         self.btn_sumar_materia.setVisible(False)
 
+        self.btn_restar_materia = QPushButton("Restar cantidad")
+        self.btn_restar_materia.setObjectName("btnRestarMateriaPrima")
+        botonera_layout.addWidget(self.btn_restar_materia)
+        self.btn_restar_materia.clicked.connect(self.abrir_restar_materia_prima)
+        self.btn_restar_materia.setVisible(False)
+
         self.table = QTableWidget()
         self.table.setObjectName("tablaInventario")
         self.table.setSizePolicy(self.table.sizePolicy().Expanding, self.table.sizePolicy().Expanding)
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(36)
         self.table.setMinimumHeight(300)
         self.table.setMinimumWidth(600)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -77,7 +84,7 @@ class Inventario(QWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle("Nueva Materia Prima")
         dialog.setObjectName("dialogMateriaPrima")
-        dialog.resize(400, 250)
+        dialog.resize(400, 100)
         form_layout = QFormLayout(dialog)
         codigo = QLineEdit()
         codigo.setObjectName("codigoMateriaPrima")
@@ -119,7 +126,7 @@ class Inventario(QWidget):
     def abrir_sumar_materia_prima(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Sumar cantidad a materia prima")
-        dialog.resize(400, 200)
+        dialog.resize(400, 100)
         form_layout = QFormLayout(dialog)
 
         # Combo para seleccionar materia prima existente
@@ -159,6 +166,44 @@ class Inventario(QWidget):
         btn_sumar.clicked.connect(sumar)
         dialog.exec_()
 
+    def abrir_restar_materia_prima(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Restar cantidad a materia prima")
+        dialog.resize(400, 100)
+        form_layout = QFormLayout(dialog)
+
+        materias = self.controller.get_materias_primas()
+        nombres = [f"{m[1]} ({m[0]})" for m in materias]
+        combo = QComboBox()
+        combo.addItems(nombres)
+        cantidad = QSpinBox()
+        cantidad.setMaximum(1000000)
+        cantidad.setMinimum(1)
+        form_layout.addRow("Materia Prima:", combo)
+        form_layout.addRow("Cantidad a restar:", cantidad)
+        btn_restar = QPushButton("Restar")
+        btn_restar.setStyleSheet("background-color: #e74c3c; color: white; border-radius: 5px; padding: 6px 18px;")
+        form_layout.addRow(btn_restar)
+        dialog.setLayout(form_layout)
+
+        def restar():
+            idx = combo.currentIndex()
+            if idx < 0:
+                QMessageBox.warning(self, "Advertencia", "Seleccione una materia prima.")
+                return
+            codigo = materias[idx][0]
+            cantidad_restar = cantidad.value()
+            try:
+                self.controller.restar_materia_prima(codigo, cantidad_restar)
+                QMessageBox.information(self, "Éxito", "Cantidad restada correctamente.")
+                dialog.accept()
+                self.mostrar_materia_prima()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", str(e))
+
+        btn_restar.clicked.connect(restar)
+        dialog.exec_()
+
     def eliminar_fila_por_boton(self, row, tabla):
         codigo_item = self.table.item(row, 1)
         if not codigo_item:
@@ -183,6 +228,7 @@ class Inventario(QWidget):
         self.titulo_label.setText("Inventario de Productos")
         self.botonera.btn_agregar.setVisible(False)
         self.btn_sumar_materia.setVisible(False)
+        self.btn_restar_materia.setVisible(False)
         resultados = self.controller.get_productos(filtro)
         columnas = ["N°", "CODIGO", "NOMBRE", "COSTO UNITARIO", "TIPO", "CANTIDAD", "ELIMINAR"]
         limpiar_celdas_widget(self.table)
@@ -214,6 +260,8 @@ class Inventario(QWidget):
         self.botonera.btn_agregar.setText("Agregar materia prima")
         self.botonera.btn_agregar.setVisible(True)
         self.btn_sumar_materia.setVisible(True)
+        self.btn_restar_materia.setVisible(True)
+
         resultados = self.controller.get_materias_primas(filtro)
         columnas = ["N°", "CODIGO", "NOMBRE", "COSTO UNITARIO", "CANTIDAD", "ELIMINAR"]
         limpiar_celdas_widget(self.table)

@@ -15,3 +15,6 @@ class InventarioController:
 
     def delete_item(self, codigo, tipo):
         self.model.eliminar_item(codigo, tipo)
+
+    def restar_materia_prima(self, codigo, cantidad_restar):
+        self.model.restar_materia_prima(codigo, cantidad_restar)

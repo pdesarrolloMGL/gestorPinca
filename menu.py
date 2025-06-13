@@ -4,7 +4,7 @@ from PyQt5.QtCore import Qt
 # from views.costos import Costos
 # from views.facturacion import Facturacion
 from views.inventario import Inventario
-# from views.calculadora import Calculadora
+from views.formulaciones import Formulaciones
 # from views.produccion import Produccion
 from PyQt5.QtGui import QPixmap, QIcon
 
@@ -49,8 +49,8 @@ class Menu(QMainWindow):
 
         # Instancia las vistas, que ahora deben consultar la nueva base de datos
         botones = {
-            "Inventario": Inventario()      # Asegúrate que Inventario use la nueva base y modelo
-            # "Calculadora": Calculadora(),
+            "Inventario": Inventario(),     # Asegúrate que Inventario use la nueva base y modelo
+            "Formulaciones": Formulaciones(),
             # "Clientes": Clientes(),
             # "Costos": Costos(),
             # "Facturación": Facturacion(),
