@@ -1,6 +1,6 @@
 /* Estilo general */
 QWidget {
-    background-color: #f4f4f4;
+    background-color: #dadada;
     font-family: 'Segoe UI', sans-serif;
     font-size: 14px;
 }
@@ -348,4 +348,19 @@ QComboBox::down-arrow:on { /* Cuando está presionado */
         }
         #btnAgregarMateriaPrima:hover {
             background-color: #218838;
+        }
+
+        QListWidget {
+            background: #fff;
+            border: 1.5px solid #00bcd4;
+            border-radius: 6px;
+            font-size: 15px;
+            color: #23272f;
+            selection-background-color: #00bcd4;
+            selection-color: #fff;
+            padding: 2px;
+        }
+        QListWidget::item {
+            padding: 6px 12px;
+            min-width: 0px;
         }

@@ -1,19 +1,25 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QComboBox, QTableWidget, QTableWidgetItem,
-    QHBoxLayout, QStackedWidget, QHeaderView, QSizePolicy, QLineEdit, QPushButton
+    QHBoxLayout, QStackedWidget, QHeaderView, QSizePolicy, QLineEdit, QPushButton, QListWidget, QListWidgetItem
 )
 from PyQt5.QtCore import Qt
 from controllers.formulaciones_controller import FormulacionesController
+
+def clear_layout(layout):
+    while layout.count():
+        item = layout.takeAt(0)
+        widget = item.widget()
+        if widget is not None:
+            widget.deleteLater()
+        elif item.layout() is not None:
+            clear_layout(item.layout())
 
 class Formulaciones(QWidget):
     def __init__(self):
         super().__init__()
         self.controller = FormulacionesController()
 
-        # StackedWidget para alternar entre pantallas
         self.stacked = QStackedWidget(self)
-
-        # Pantalla principal (formulaciones)
         self.pantalla_formulaciones = QWidget()
         main_layout = QVBoxLayout(self.pantalla_formulaciones)
         main_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
@@ -24,9 +30,15 @@ class Formulaciones(QWidget):
         titulo.setObjectName("Titulo")
         main_layout.addWidget(titulo)
 
-        # Layout horizontal para select y botón
+        # Layout horizontal para select, buscador y botón
         selector_layout = QHBoxLayout()
         selector_layout.setAlignment(Qt.AlignCenter)
+
+        # Buscador por nombre
+        self.producto_search = QLineEdit()
+        self.producto_search.setPlaceholderText("Buscar producto...")
+        self.producto_search.setFixedWidth(200)
+        selector_layout.addWidget(self.producto_search)
 
         # ComboBox para seleccionar producto
         self.producto_combo = QComboBox()
@@ -45,10 +57,19 @@ class Formulaciones(QWidget):
 
         # Botón para recalcular con volumen personalizado
         self.btn_recalcular = QPushButton("Recalcular")
+        self.btn_recalcular.setFixedWidth(100)
         self.btn_recalcular.clicked.connect(self.mostrar_formula_producto)
         selector_layout.addWidget(self.btn_recalcular)
 
         main_layout.addLayout(selector_layout)
+
+        # Dropdown flotante para resultados de búsqueda (hijo de self)
+        self.producto_list = QListWidget(self)
+        self.producto_list.hide()
+
+        # Conexiones para buscador
+        self.producto_search.textChanged.connect(self.buscar_producto)
+        self.producto_list.itemClicked.connect(self.seleccionar_producto_busqueda)
 
         # Tabla principal
         tabla_layout = QVBoxLayout()
@@ -62,7 +83,6 @@ class Formulaciones(QWidget):
         ])
         self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         tabla_layout.addWidget(self.table)
 
@@ -112,6 +132,41 @@ class Formulaciones(QWidget):
 
         self.showMaximized()
 
+    def buscar_producto(self, texto):
+        self.producto_list.clear()
+        if not texto:
+            self.producto_list.hide()
+            return
+        max_width = self.producto_search.width()
+        fm = self.producto_list.fontMetrics()
+        for prod_id, nombre in self.productos:
+            if texto.lower() in nombre.lower():
+                item = QListWidgetItem(nombre)
+                item.setData(Qt.UserRole, prod_id)
+                self.producto_list.addItem(item)
+                item_width = fm.width(nombre) + 40  # 40px de margen/padding
+                if item_width > max_width:
+                    max_width = item_width
+        if self.producto_list.count() > 0:
+            pos = self.producto_search.mapTo(self, self.producto_search.rect().bottomLeft())
+            self.producto_list.move(pos)
+            self.producto_list.setFixedWidth(max_width)
+            self.producto_list.setMinimumHeight(80)
+            self.producto_list.setMaximumHeight(200)
+            self.producto_list.raise_()
+            self.producto_list.show()
+        else:
+            self.producto_list.hide()
+
+    def seleccionar_producto_busqueda(self, item):
+        prod_id = item.data(Qt.UserRole)
+        # Selecciona el producto en el combo
+        index = self.producto_combo.findData(prod_id)
+        if index != -1:
+            self.producto_combo.setCurrentIndex(index)
+        self.producto_list.hide()
+        self.producto_search.clear()
+
     def mostrar_formula_producto(self):
         prod_id = self.producto_combo.currentData()
 
@@ -140,17 +195,20 @@ class Formulaciones(QWidget):
                     self.datos_tecnicos_tabla.setItem(self.datos_tecnicos_tabla.rowCount()-1, 0, QTableWidgetItem(nombres[i]))
                     self.datos_tecnicos_tabla.setItem(self.datos_tecnicos_tabla.rowCount()-1, 1, QTableWidgetItem(mostrar))
 
-        # Limpiar el widget de costos
-        for i in reversed(range(self.costos_layout.count())):
-            widget = self.costos_layout.itemAt(i).widget()
-            if widget is not None:
-                widget.setParent(None)
+        # Limpiar el widget de costos (elimina widgets y layouts anidados)
+        clear_layout(self.costos_layout)
 
         if prod_id is None:
-            self.table.setRowCount(0)
-            self.table.clearContents()
+            self.table.setHorizontalHeaderLabels([""] * self.table.columnCount())
+            self.table.setRowCount(1)
+            for col in range(self.table.columnCount()):
+                self.table.setItem(0, col, QTableWidgetItem(""))
             self.total_label.setText("TOTAL COSTO MATERIA PRIMA: $ 0.00")
             return
+        else:
+            self.table.setHorizontalHeaderLabels([
+                "N°", "CÓDIGO", "MATERIA PRIMA", "COSTO UNITARIO", "CANTIDAD", "TOTAL"
+            ])
 
         # Obtener materias primas asociadas al producto
         materias = self.controller.get_materias_primas(prod_id)
@@ -169,7 +227,7 @@ class Formulaciones(QWidget):
         self.table.verticalHeader().setVisible(False)
         self.table.setRowCount(len(materias))
         suma_total = 0.0
-        for i, (codigo, nombre, costo_unitario, cantidad) in enumerate(materias):
+        for i, (codigo, nombre, costo_unitario, cantidad, unidad) in enumerate(materias):
             cantidad_ajustada = float(cantidad) * factor_volumen
             self.table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
             self.table.setItem(i, 1, QTableWidgetItem(str(codigo)))
@@ -197,6 +255,14 @@ class Formulaciones(QWidget):
                 pass
 
         self.total_label.setText(f"TOTAL COSTO MATERIA PRIMA: $ {suma_total:,.2f}")
+
+        # Ajustar ancho de columnas para ver nombres completos
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)  # N°
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)  # CÓDIGO
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)          # MATERIA PRIMA
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch) # COSTO UNITARIO
+        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch) # CANTIDAD
+        self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Stretch) # TOTAL
 
         # Obtener costos fijos de costos_produccion
         costos = self.controller.get_costos_fijos(prod_id)
@@ -271,22 +337,10 @@ class Formulaciones(QWidget):
         fila2.addWidget(label_total)
         fila2.addWidget(label_precio)
 
-        # Limpiar el layout antes de agregar
-        for i in reversed(range(self.costos_layout.count())):
-            item = self.costos_layout.itemAt(i)
-            if item is not None:
-                widget = item.widget()
-                if widget is not None:
-                    widget.setParent(None)
-                else:
-                    self.costos_layout.removeItem(item)
-
         self.costos_layout.addLayout(fila1)
         self.costos_layout.addLayout(fila2)
 
     def es_producto_por_kg(self, prod_id):
-        # Personaliza según tu lógica de negocio
-        # Ejemplo: si el nombre contiene 'KG' o es de cierto tipo
         nombre = None
         for pid, n in self.productos:
             if pid == prod_id:
@@ -301,4 +355,4 @@ class Formulaciones(QWidget):
             float(valor)
             return True
         except (TypeError, ValueError):
-            return False    
+            return False

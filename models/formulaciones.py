@@ -25,16 +25,17 @@ class FormulacionesModel:
 
     def obtener_materias_primas(self, prod_id):
         self.cursor.execute("""
-            SELECT mp.codigo, mp.nombre, mp.costo_unitario, pmp.cantidad
-            FROM producto_materia_prima pmp
-            JOIN materia_prima mp ON pmp.materia_prima_id = mp.id
-            WHERE pmp.producto_id = ?
+            SELECT mp.codigo, mp.nombre, cp.costo_unitario, f.cantidad, f.unidad
+            FROM formulaciones f
+            JOIN item_general mp ON f.materia_prima_id = mp.id
+            LEFT JOIN costos_produccion cp ON mp.id = cp.item_id
+            WHERE f.producto_id = ?
         """, (prod_id,))
         return self.cursor.fetchall()
 
     def obtener_costos_fijos(self, prod_id):
         self.cursor.execute("""
-            SELECT costo_mp_kg, costo_mp_galon, costo_unitario, envase, etiqueta, bandeja, plastico
+            SELECT costo_mp_kg, costo_mp_galon, costo_mod, envase, etiqueta, bandeja, plastico
             FROM costos_produccion
             WHERE item_id = ?
         """, (prod_id,))
