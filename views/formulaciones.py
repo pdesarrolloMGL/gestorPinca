@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout, QStackedWidget, QHeaderView, QSizePolicy, QLineEdit, QPushButton, QListWidget, QListWidgetItem
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QIcon
 from controllers.formulaciones_controller import FormulacionesController
 
 def clear_layout(layout):
@@ -70,10 +70,11 @@ class Formulaciones(QWidget):
         selector_layout.addWidget(self.btn_recalcular)
 
         # Botón para refrescar productos
-        self.btn_refrescar = QPushButton("Refrescar")
+        self.btn_refrescar = QPushButton("  Refrescar")
         self.btn_refrescar.setMinimumWidth(90)
         self.btn_refrescar.setMaximumWidth(120)
         self.btn_refrescar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.btn_refrescar.setIcon(QIcon("assets/refresh.png"))
         self.btn_refrescar.clicked.connect(self.recargar_productos)
         selector_layout.addWidget(self.btn_refrescar)
 
@@ -137,6 +138,10 @@ class Formulaciones(QWidget):
         self.costos_layout.setContentsMargins(10, 10, 10, 10)
         tablas_pequenas_layout.addWidget(self.costos_widget, stretch=1)
 
+        # Conexiones para mostrar la fórmula del producto
+        self.volumen_input.textChanged.connect(self.mostrar_formula_producto)
+        self.volumen_input.editingFinished.connect(self.mostrar_formula_producto)
+
         main_layout.addLayout(tablas_pequenas_layout)
 
         # Agrega la pantalla principal al stacked
@@ -159,14 +164,11 @@ class Formulaciones(QWidget):
             self.mostrar_formula_producto()
 
     def recargar_productos(self):
-        print("Recargando productos en Formulaciones")
         self.productos = self.controller.get_productos()
-        print("Productos:", self.productos)  # Debug
         self.producto_combo.blockSignals(True)
         self.producto_combo.clear()
         self.producto_combo.addItem("Seleccione un producto...", None)
         for prod_id, nombre in self.productos:
-            print(f"Agregando al ComboBox: {prod_id}, {nombre}")
             self.producto_combo.addItem(nombre, prod_id)
         self.producto_combo.blockSignals(False)
         if self.producto_combo.count() > 1:
@@ -210,11 +212,15 @@ class Formulaciones(QWidget):
     def mostrar_formula_producto(self):
         prod_id = self.producto_combo.currentData()
         volumen_original = self.controller.get_volumen_original(prod_id) if prod_id else None
-        volumen_personalizado = self.volumen_input.text().replace(",", ".")
+        texto_vol = self.volumen_input.text().replace(",", ".").strip()
         try:
-            volumen_personalizado = float(volumen_personalizado) if volumen_personalizado else None
+            volumen_personalizado = float(texto_vol) if texto_vol else None
         except Exception:
             volumen_personalizado = None
+
+        # DEBUG prints para depuración
+        print("volumen_original:", volumen_original)
+        print("volumen_personalizado:", volumen_personalizado)
 
         self.datos_tecnicos_tabla.setRowCount(0)
         if prod_id:
@@ -227,8 +233,15 @@ class Formulaciones(QWidget):
                 for i, valor in enumerate(datos):
                     mostrar = str(valor) if valor not in (None, '', 'None') else "N/A"
                     self.datos_tecnicos_tabla.insertRow(self.datos_tecnicos_tabla.rowCount())
-                    self.datos_tecnicos_tabla.setItem(self.datos_tecnicos_tabla.rowCount()-1, 0, QTableWidgetItem(nombres[i]))
-                    self.datos_tecnicos_tabla.setItem(self.datos_tecnicos_tabla.rowCount()-1, 1, QTableWidgetItem(mostrar))
+                    row = self.datos_tecnicos_tabla.rowCount() - 1
+
+                    item_param = QTableWidgetItem(nombres[i])
+                    item_param.setBackground(QColor("white"))
+                    self.datos_tecnicos_tabla.setItem(row, 0, item_param)
+
+                    item_valor = QTableWidgetItem(mostrar)
+                    item_valor.setBackground(QColor("white"))
+                    self.datos_tecnicos_tabla.setItem(row, 1, item_valor)
 
         clear_layout(self.costos_layout)
 
@@ -249,6 +262,8 @@ class Formulaciones(QWidget):
         if volumen_original and volumen_personalizado:
             factor_volumen = volumen_personalizado / volumen_original
 
+        print("factor_volumen:", factor_volumen)
+
         self.table.setRowCount(0)
         self.table.clearContents()
         self.table.setColumnCount(7)
@@ -260,17 +275,21 @@ class Formulaciones(QWidget):
         suma_total = 0.0
         for i, (codigo, nombre, costo_unitario, cantidad, unidad) in enumerate(materias):
             cantidad_ajustada = float(cantidad) * factor_volumen
+            print(f"cantidad base: {cantidad}, cantidad ajustada: {cantidad_ajustada}")
 
             item_n = QTableWidgetItem(str(i + 1))
             item_n.setTextAlignment(Qt.AlignCenter)
+            item_n.setBackground(QColor("white"))
             self.table.setItem(i, 0, item_n)
 
             item_codigo = QTableWidgetItem(str(codigo))
             item_codigo.setTextAlignment(Qt.AlignCenter)
+            item_codigo.setBackground(QColor("white"))
             self.table.setItem(i, 1, item_codigo)
 
             item_nombre = QTableWidgetItem(str(nombre))
             item_nombre.setTextAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+            item_nombre.setBackground(QColor("white"))
             self.table.setItem(i, 2, item_nombre)
 
             try:
@@ -279,15 +298,18 @@ class Formulaciones(QWidget):
                 costo_unitario_fmt = str(costo_unitario)
             item_costo = QTableWidgetItem("   " + costo_unitario_fmt)
             item_costo.setTextAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+            item_costo.setBackground(QColor("white"))
             self.table.setItem(i, 3, item_costo)
 
             item_cant = QTableWidgetItem("{:,.2f}".format(cantidad_ajustada))
             item_cant.setTextAlignment(Qt.AlignCenter)
+            item_cant.setBackground(QColor("white"))
             self.table.setItem(i, 4, item_cant)
 
             cantidad_inventario = self.controller.get_cantidad_inventario(codigo)
             item_inv = QTableWidgetItem("{:,.2f}".format(cantidad_inventario))
             item_inv.setTextAlignment(Qt.AlignCenter)
+            item_inv.setBackground(QColor("white"))
             if cantidad_inventario >= cantidad_ajustada:
                 item_inv.setBackground(QColor(204, 255, 204))  # Verde pastel suave
             else:
@@ -304,12 +326,15 @@ class Formulaciones(QWidget):
                 total_fmt = str(total)
             item_total = QTableWidgetItem("   " + total_fmt)
             item_total.setTextAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+            item_total.setBackground(QColor("white"))
             self.table.setItem(i, 6, item_total)
 
             try:
                 suma_total += float(total)
             except Exception:
                 pass
+
+        print("suma_total:", suma_total)
 
         self.total_label.setText(f"TOTAL COSTO MATERIA PRIMA: $ {suma_total:,.2f}")
 
@@ -321,59 +346,44 @@ class Formulaciones(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents) # EN INVENTARIO
         self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Stretch) # TOTAL
 
+        # --- COSTOS Y SUMA AJUSTADA --- #
         costos = self.controller.get_costos_fijos(prod_id)
-        costo_mp_kg = costos[0] if costos else 0
-        costo_mp_galon = costos[1] if costos else 0
-        costo_mod = costos[2] if costos else 0
-        envase = costos[3] if costos else 0
-        etiqueta = costos[4] if costos else 0
-        bandeja = costos[5] if costos else 0
-        plastico = costos[6] if costos else 0
+        costo_mod = float(costos[2]) if costos and self.es_numero(costos[2]) else 0
+        envase = float(costos[3]) if costos and self.es_numero(costos[3]) else 0
+        etiqueta = float(costos[4]) if costos and self.es_numero(costos[4]) else 0
+        bandeja = float(costos[5]) if costos and self.es_numero(costos[5]) else 0
+        plastico = float(costos[6]) if costos and self.es_numero(costos[6]) else 0
 
-        costo_total = None
-        precio_venta = None
+        if volumen_original and volumen_original > 0:
+            costo_mp_galon = suma_total / volumen_original
+        else:
+            costo_mp_galon = 0
 
-        if volumen_original:
-            if self.es_producto_por_kg(prod_id):
-                costo_mp_kg = suma_total / (volumen_personalizado if volumen_personalizado else volumen_original)
-                costo_total = (costo_mp_kg if self.es_numero(costo_mp_kg) else 0) + \
-                              (float(costo_mod) if self.es_numero(costo_mod) else 0) + \
-                              (float(envase) if self.es_numero(envase) else 0) + \
-                              (float(etiqueta) if self.es_numero(etiqueta) else 0) + \
-                              (float(bandeja) if self.es_numero(bandeja) else 0) + \
-                              (float(plastico) if self.es_numero(plastico) else 0)
-                precio_venta = costo_total * 1.4 if costo_total is not None else None
-            else:
-                costo_mp_galon = suma_total / (volumen_personalizado if volumen_personalizado else volumen_original)
-                costo_total = (costo_mp_galon if self.es_numero(costo_mp_galon) else 0) + \
-                              (float(costo_mod) if self.es_numero(costo_mod) else 0) + \
-                              (float(envase) if self.es_numero(envase) else 0) + \
-                              (float(etiqueta) if self.es_numero(etiqueta) else 0) + \
-                              (float(bandeja) if self.es_numero(bandeja) else 0) + \
-                              (float(plastico) if self.es_numero(plastico) else 0)
-                precio_venta = costo_total * 1.4 if costo_total is not None else None
+        costo_total = costo_mp_galon + costo_mod + envase + etiqueta + bandeja + plastico
+        precio_venta = costo_total * 1.4 if costo_total else 0
+
+        print("costo_mp_galon:", costo_mp_galon)
+        print("costo_total:", costo_total)
+        print("precio_venta:", precio_venta)
 
         fila1 = QHBoxLayout()
         fila2 = QHBoxLayout()
         fila1.setSpacing(20)
         fila2.setSpacing(20)
 
-        if self.es_producto_por_kg(prod_id):
-            label_mp = QLabel(f"COSTO MP/Kg: <b>{f'$ {float(costo_mp_kg):,.2f}' if self.es_numero(costo_mp_kg) else 'N/A'}</b>")
-        else:
-            label_mp = QLabel(f"COSTO MP/Galon: <b>{f'$ {float(costo_mp_galon):,.2f}' if self.es_numero(costo_mp_galon) else 'N/A'}</b>")
+        label_mp = QLabel(f"COSTO MP/Galon: <b>{f'$ {costo_mp_galon:,.2f}' if self.es_numero(costo_mp_galon) else 'N/A'}</b>")
         label_mp.setObjectName("CostoMPLabel")
         fila1.addWidget(label_mp)
 
-        label_mod = QLabel(f"COSTO MOD: {f'$ {float(costo_mod):,.2f}' if self.es_numero(costo_mod) else 'N/A'}")
+        label_mod = QLabel(f"COSTO MOD: {f'$ {costo_mod:,.2f}' if self.es_numero(costo_mod) else 'N/A'}")
         label_mod.setObjectName("CostoMODLabel")
-        label_env = QLabel(f"ENVASE: {f'$ {float(envase):,.2f}' if self.es_numero(envase) else 'N/A'}")
+        label_env = QLabel(f"ENVASE: {f'$ {envase:,.2f}' if self.es_numero(envase) else 'N/A'}")
         label_env.setObjectName("EnvaseLabel")
-        label_eti = QLabel(f"ETIQUETA: {f'$ {float(etiqueta):,.2f}' if self.es_numero(etiqueta) else 'N/A'}")
+        label_eti = QLabel(f"ETIQUETA: {f'$ {etiqueta:,.2f}' if self.es_numero(etiqueta) else 'N/A'}")
         label_eti.setObjectName("EtiquetaLabel")
-        label_ban = QLabel(f"BANDEJA: {f'$ {float(bandeja):,.2f}' if self.es_numero(bandeja) else 'N/A'}")
+        label_ban = QLabel(f"BANDEJA: {f'$ {bandeja:,.2f}' if self.es_numero(bandeja) else 'N/A'}")
         label_ban.setObjectName("BandejaLabel")
-        label_pla = QLabel(f"PLASTICO: {f'$ {float(plastico):,.2f}' if self.es_numero(plastico) else 'N/A'}")
+        label_pla = QLabel(f"PLASTICO: {f'$ {plastico:,.2f}' if self.es_numero(plastico) else 'N/A'}")
         label_pla.setObjectName("PlasticoLabel")
 
         fila1.addWidget(label_mod)
@@ -382,9 +392,9 @@ class Formulaciones(QWidget):
         fila2.addWidget(label_ban)
         fila2.addWidget(label_pla)
 
-        label_total = QLabel(f"COSTO TOTAL: <b>{f'$ {float(costo_total):,.2f}' if self.es_numero(costo_total) else 'N/A'}</b>")
+        label_total = QLabel(f"COSTO TOTAL: <b>{f'$ {costo_total:,.2f}' if self.es_numero(costo_total) else 'N/A'}</b>")
         label_total.setObjectName("CostoTotalLabel")
-        label_precio = QLabel(f"PRECIO VENTA: <b>{f'$ {float(precio_venta):,.2f}' if self.es_numero(precio_venta) else 'N/A'}</b>")
+        label_precio = QLabel(f"PRECIO VENTA: <b>{f'$ {precio_venta:,.2f}' if self.es_numero(precio_venta) else 'N/A'}</b>")
         label_precio.setObjectName("PrecioVentaLabel")
         fila2.addWidget(label_total)
         fila2.addWidget(label_precio)
