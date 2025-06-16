@@ -18,3 +18,18 @@ class InventarioController:
 
     def restar_materia_prima(self, codigo, cantidad_restar):
         self.model.restar_materia_prima(codigo, cantidad_restar)
+
+    def get_categorias(self):
+        return self.model.obtener_categorias()
+    
+    def crear_item_general(self, nombre, codigo, tipo):
+        return self.model.crear_item_general(nombre, codigo, tipo)
+
+    def crear_item_especifico(self, *args, **kwargs):
+        return self.model.crear_item_especifico(*args, **kwargs)
+
+    def crear_costos_produccion(self, *args, **kwargs):
+        return self.model.crear_costos_produccion(*args, **kwargs)
+
+    def agregar_formulacion(self, producto_id, materia_prima_id, cantidad, unidad=None):
+        return self.model.agregar_formulacion(producto_id, materia_prima_id, cantidad, unidad)

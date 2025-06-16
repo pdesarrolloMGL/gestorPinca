@@ -47,3 +47,10 @@ class FormulacionesModel:
         """, (prod_id,))
         row = self.cursor.fetchone()
         return float(row[0]) if row and row[0] is not None else None
+    
+    def get_cantidad_inventario(self, codigo_mp):
+        result = self.cursor.execute(
+            "SELECT IFNULL(cantidad, 0) FROM inventario WHERE item_id = (SELECT id FROM item_general WHERE codigo = ?)",
+            (codigo_mp,)
+        ).fetchone()
+        return result[0] if result else 0

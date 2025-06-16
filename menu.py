@@ -1,12 +1,8 @@
 from PyQt5.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QStackedWidget, QSizePolicy
 from PyQt5.QtCore import Qt
-# from views.clientes import Clientes
-# from views.costos import Costos
-# from views.facturacion import Facturacion
+from PyQt5.QtGui import QPixmap, QIcon
 from views.inventario import Inventario
 from views.formulaciones import Formulaciones
-# from views.produccion import Produccion
-from PyQt5.QtGui import QPixmap, QIcon
 
 class Menu(QMainWindow):
     def __init__(self):
@@ -47,10 +43,16 @@ class Menu(QMainWindow):
         # Diccionario para guardar los botones
         self.sidebar_buttons = {}
 
-        # Instancia las vistas, que ahora deben consultar la nueva base de datos
+        # Instancia las vistas
+        inventario_widget = Inventario()
+        formulaciones_widget = Formulaciones()
+
+        # CONECTA LA SEÑAL AQUÍ
+        inventario_widget.producto_agregado.connect(formulaciones_widget.recargar_productos)
+
         botones = {
-            "Inventario": Inventario(),     # Asegúrate que Inventario use la nueva base y modelo
-            "Formulaciones": Formulaciones(),
+            "Inventario": inventario_widget,
+            "Formulaciones": formulaciones_widget,
             # "Clientes": Clientes(),
             # "Costos": Costos(),
             # "Facturación": Facturacion(),
@@ -95,4 +97,3 @@ class Menu(QMainWindow):
         btn_actual = self.sidebar_buttons[nombre]
         btn_actual.setProperty("active", True)
         btn_actual.style().unpolish(btn_actual)
-        btn_actual.style().polish(btn_actual)

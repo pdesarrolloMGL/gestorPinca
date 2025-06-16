@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout, QStackedWidget, QHeaderView, QSizePolicy, QLineEdit, QPushButton, QListWidget, QListWidgetItem
 )
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QColor
 from controllers.formulaciones_controller import FormulacionesController
 
 def clear_layout(layout):
@@ -19,8 +20,10 @@ class Formulaciones(QWidget):
         super().__init__()
         self.controller = FormulacionesController()
 
-        self.stacked = QStackedWidget(self)
+        # Widget principal de la pantalla de formulaciones
         self.pantalla_formulaciones = QWidget()
+        self.pantalla_formulaciones.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
         main_layout = QVBoxLayout(self.pantalla_formulaciones)
         main_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
 
@@ -30,14 +33,15 @@ class Formulaciones(QWidget):
         titulo.setObjectName("Titulo")
         main_layout.addWidget(titulo)
 
-        # Layout horizontal para select, buscador y botón
+        # Layout horizontal para select, buscador y botones
         selector_layout = QHBoxLayout()
-        selector_layout.setAlignment(Qt.AlignCenter)
+        selector_layout.setAlignment(Qt.AlignLeft)
 
         # Buscador por nombre
         self.producto_search = QLineEdit()
         self.producto_search.setPlaceholderText("Buscar producto...")
-        self.producto_search.setFixedWidth(200)
+        self.producto_search.setMinimumWidth(200)
+        self.producto_search.setMaximumWidth(350)
         selector_layout.addWidget(self.producto_search)
 
         # ComboBox para seleccionar producto
@@ -46,20 +50,32 @@ class Formulaciones(QWidget):
         self.productos = self.controller.get_productos()
         for prod_id, nombre in self.productos:
             self.producto_combo.addItem(nombre, prod_id)
+        self.producto_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.producto_combo.currentIndexChanged.connect(self.mostrar_formula_producto)
-        selector_layout.addWidget(self.producto_combo)
+        selector_layout.addWidget(self.producto_combo, stretch=1)
 
         # Campo para ingresar volumen personalizado
         self.volumen_input = QLineEdit()
-        self.volumen_input.setPlaceholderText("Volumen personalizado")
-        self.volumen_input.setFixedWidth(150)
+        self.volumen_input.setPlaceholderText("Volumen: ")
+        self.volumen_input.setMinimumWidth(100)
+        self.volumen_input.setMaximumWidth(150)
         selector_layout.addWidget(self.volumen_input)
 
         # Botón para recalcular con volumen personalizado
         self.btn_recalcular = QPushButton("Recalcular")
-        self.btn_recalcular.setFixedWidth(100)
+        self.btn_recalcular.setMinimumWidth(90)
+        self.btn_recalcular.setMaximumWidth(120)
+        self.btn_recalcular.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.btn_recalcular.clicked.connect(self.mostrar_formula_producto)
         selector_layout.addWidget(self.btn_recalcular)
+
+        # Botón para refrescar productos
+        self.btn_refrescar = QPushButton("Refrescar")
+        self.btn_refrescar.setMinimumWidth(90)
+        self.btn_refrescar.setMaximumWidth(120)
+        self.btn_refrescar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.btn_refrescar.clicked.connect(self.recargar_productos)
+        selector_layout.addWidget(self.btn_refrescar)
 
         main_layout.addLayout(selector_layout)
 
@@ -77,9 +93,9 @@ class Formulaciones(QWidget):
         tabla_layout.setContentsMargins(0, 0, 0, 0)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(6)
+        self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels([
-            "N°", "CÓDIGO", "MATERIA PRIMA", "COSTO UNITARIO", "CANTIDAD", "TOTAL"
+            "N°", "CÓDIGO", "MATERIA PRIMA", "COSTO UNITARIO", "CANTIDAD NECESARIA", "CANTIDAD EN INVENTARIO", "TOTAL"
         ])
         self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -124,13 +140,38 @@ class Formulaciones(QWidget):
         main_layout.addLayout(tablas_pequenas_layout)
 
         # Agrega la pantalla principal al stacked
+        self.stacked = QStackedWidget(self)
+        self.stacked.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.stacked.addWidget(self.pantalla_formulaciones)
 
         # Layout principal de Calculadora
         layout_principal = QVBoxLayout(self)
+        layout_principal.setContentsMargins(0, 0, 0, 0)
+        layout_principal.setSpacing(0)
         layout_principal.addWidget(self.stacked)
 
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
         self.showMaximized()
+
+        if self.producto_combo.count() > 1:
+            self.producto_combo.setCurrentIndex(1)
+            self.mostrar_formula_producto()
+
+    def recargar_productos(self):
+        print("Recargando productos en Formulaciones")
+        self.productos = self.controller.get_productos()
+        print("Productos:", self.productos)  # Debug
+        self.producto_combo.blockSignals(True)
+        self.producto_combo.clear()
+        self.producto_combo.addItem("Seleccione un producto...", None)
+        for prod_id, nombre in self.productos:
+            print(f"Agregando al ComboBox: {prod_id}, {nombre}")
+            self.producto_combo.addItem(nombre, prod_id)
+        self.producto_combo.blockSignals(False)
+        if self.producto_combo.count() > 1:
+            self.producto_combo.setCurrentIndex(self.producto_combo.count() - 1)
+            self.mostrar_formula_producto()
 
     def buscar_producto(self, texto):
         self.producto_list.clear()
@@ -144,15 +185,15 @@ class Formulaciones(QWidget):
                 item = QListWidgetItem(nombre)
                 item.setData(Qt.UserRole, prod_id)
                 self.producto_list.addItem(item)
-                item_width = fm.width(nombre) + 40  # 40px de margen/padding
+                item_width = fm.width(nombre) + 20  # 20px de margen/padding
                 if item_width > max_width:
                     max_width = item_width
         if self.producto_list.count() > 0:
             pos = self.producto_search.mapTo(self, self.producto_search.rect().bottomLeft())
             self.producto_list.move(pos)
             self.producto_list.setFixedWidth(max_width)
-            self.producto_list.setMinimumHeight(80)
-            self.producto_list.setMaximumHeight(200)
+            self.producto_list.setMinimumHeight(300)
+            self.producto_list.setMaximumHeight(500)
             self.producto_list.raise_()
             self.producto_list.show()
         else:
@@ -160,7 +201,6 @@ class Formulaciones(QWidget):
 
     def seleccionar_producto_busqueda(self, item):
         prod_id = item.data(Qt.UserRole)
-        # Selecciona el producto en el combo
         index = self.producto_combo.findData(prod_id)
         if index != -1:
             self.producto_combo.setCurrentIndex(index)
@@ -169,18 +209,13 @@ class Formulaciones(QWidget):
 
     def mostrar_formula_producto(self):
         prod_id = self.producto_combo.currentData()
-
-        # Obtener volumen original del producto
         volumen_original = self.controller.get_volumen_original(prod_id) if prod_id else None
-
-        # Volumen personalizado (si el usuario lo ingresa)
         volumen_personalizado = self.volumen_input.text().replace(",", ".")
         try:
             volumen_personalizado = float(volumen_personalizado) if volumen_personalizado else None
         except Exception:
             volumen_personalizado = None
 
-        # Mostrar datos técnicos del producto
         self.datos_tecnicos_tabla.setRowCount(0)
         if prod_id:
             datos = self.controller.get_datos_tecnicos(prod_id)
@@ -195,7 +230,6 @@ class Formulaciones(QWidget):
                     self.datos_tecnicos_tabla.setItem(self.datos_tecnicos_tabla.rowCount()-1, 0, QTableWidgetItem(nombres[i]))
                     self.datos_tecnicos_tabla.setItem(self.datos_tecnicos_tabla.rowCount()-1, 1, QTableWidgetItem(mostrar))
 
-        # Limpiar el widget de costos (elimina widgets y layouts anidados)
         clear_layout(self.costos_layout)
 
         if prod_id is None:
@@ -207,39 +241,59 @@ class Formulaciones(QWidget):
             return
         else:
             self.table.setHorizontalHeaderLabels([
-                "N°", "CÓDIGO", "MATERIA PRIMA", "COSTO UNITARIO", "CANTIDAD", "TOTAL"
+                "N°", "CÓDIGO", "MATERIA PRIMA", "COSTO UNITARIO", "CANTIDAD NECESARIA", "CANTIDAD EN INVENTARIO", "TOTAL"
             ])
 
-        # Obtener materias primas asociadas al producto
         materias = self.controller.get_materias_primas(prod_id)
-
-        # Si hay volumen personalizado, recalcula cantidades
         factor_volumen = 1.0
         if volumen_original and volumen_personalizado:
             factor_volumen = volumen_personalizado / volumen_original
 
         self.table.setRowCount(0)
         self.table.clearContents()
-        self.table.setColumnCount(6)
+        self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels([
-            "N°", "CÓDIGO", "MATERIA PRIMA", "COSTO UNITARIO", "CANTIDAD", "TOTAL"
+            "N°", "CÓDIGO", "MATERIA PRIMA", "COSTO UNITARIO", "CANTIDAD NECESARIA", "CANTIDAD EN INVENTARIO", "TOTAL"
         ])
         self.table.verticalHeader().setVisible(False)
         self.table.setRowCount(len(materias))
         suma_total = 0.0
         for i, (codigo, nombre, costo_unitario, cantidad, unidad) in enumerate(materias):
             cantidad_ajustada = float(cantidad) * factor_volumen
-            self.table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
-            self.table.setItem(i, 1, QTableWidgetItem(str(codigo)))
-            self.table.setItem(i, 2, QTableWidgetItem(str(nombre)))
-            # Formato moneda para costo unitario
+
+            item_n = QTableWidgetItem(str(i + 1))
+            item_n.setTextAlignment(Qt.AlignCenter)
+            self.table.setItem(i, 0, item_n)
+
+            item_codigo = QTableWidgetItem(str(codigo))
+            item_codigo.setTextAlignment(Qt.AlignCenter)
+            self.table.setItem(i, 1, item_codigo)
+
+            item_nombre = QTableWidgetItem(str(nombre))
+            item_nombre.setTextAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+            self.table.setItem(i, 2, item_nombre)
+
             try:
                 costo_unitario_fmt = "$ {:,.2f}".format(float(costo_unitario))
             except Exception:
                 costo_unitario_fmt = str(costo_unitario)
-            self.table.setItem(i, 3, QTableWidgetItem(costo_unitario_fmt))
-            self.table.setItem(i, 4, QTableWidgetItem("{:,.2f}".format(cantidad_ajustada)))
-            # Formato moneda para total
+            item_costo = QTableWidgetItem("   " + costo_unitario_fmt)
+            item_costo.setTextAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+            self.table.setItem(i, 3, item_costo)
+
+            item_cant = QTableWidgetItem("{:,.2f}".format(cantidad_ajustada))
+            item_cant.setTextAlignment(Qt.AlignCenter)
+            self.table.setItem(i, 4, item_cant)
+
+            cantidad_inventario = self.controller.get_cantidad_inventario(codigo)
+            item_inv = QTableWidgetItem("{:,.2f}".format(cantidad_inventario))
+            item_inv.setTextAlignment(Qt.AlignCenter)
+            if cantidad_inventario >= cantidad_ajustada:
+                item_inv.setBackground(QColor(204, 255, 204))  # Verde pastel suave
+            else:
+                item_inv.setBackground(QColor(255, 204, 204))  # Rojo pastel suave
+            self.table.setItem(i, 5, item_inv)
+
             try:
                 total = float(costo_unitario) * cantidad_ajustada
             except Exception:
@@ -248,7 +302,10 @@ class Formulaciones(QWidget):
                 total_fmt = "$ {:,.2f}".format(float(total))
             except Exception:
                 total_fmt = str(total)
-            self.table.setItem(i, 5, QTableWidgetItem(total_fmt))
+            item_total = QTableWidgetItem("   " + total_fmt)
+            item_total.setTextAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+            self.table.setItem(i, 6, item_total)
+
             try:
                 suma_total += float(total)
             except Exception:
@@ -256,15 +313,14 @@ class Formulaciones(QWidget):
 
         self.total_label.setText(f"TOTAL COSTO MATERIA PRIMA: $ {suma_total:,.2f}")
 
-        # Ajustar ancho de columnas para ver nombres completos
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)  # N°
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)  # CÓDIGO
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)          # MATERIA PRIMA
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch) # MATERIA PRIMA
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch) # COSTO UNITARIO
-        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch) # CANTIDAD
-        self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Stretch) # TOTAL
+        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents) # CANTIDAD
+        self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents) # EN INVENTARIO
+        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Stretch) # TOTAL
 
-        # Obtener costos fijos de costos_produccion
         costos = self.controller.get_costos_fijos(prod_id)
         costo_mp_kg = costos[0] if costos else 0
         costo_mp_galon = costos[1] if costos else 0
@@ -274,7 +330,6 @@ class Formulaciones(QWidget):
         bandeja = costos[5] if costos else 0
         plastico = costos[6] if costos else 0
 
-        # Cálculo de costo_mp_kg o costo_mp_galon y costo_total
         costo_total = None
         precio_venta = None
 
@@ -298,13 +353,11 @@ class Formulaciones(QWidget):
                               (float(plastico) if self.es_numero(plastico) else 0)
                 precio_venta = costo_total * 1.4 if costo_total is not None else None
 
-        # Agrupa los costos en dos filas para mejor visualización
         fila1 = QHBoxLayout()
         fila2 = QHBoxLayout()
         fila1.setSpacing(20)
         fila2.setSpacing(20)
 
-        # Colores personalizados para cada tipo de costo usando setObjectName
         if self.es_producto_por_kg(prod_id):
             label_mp = QLabel(f"COSTO MP/Kg: <b>{f'$ {float(costo_mp_kg):,.2f}' if self.es_numero(costo_mp_kg) else 'N/A'}</b>")
         else:
@@ -329,7 +382,6 @@ class Formulaciones(QWidget):
         fila2.addWidget(label_ban)
         fila2.addWidget(label_pla)
 
-        # COSTO TOTAL y PRECIO VENTA resaltados y grandes
         label_total = QLabel(f"COSTO TOTAL: <b>{f'$ {float(costo_total):,.2f}' if self.es_numero(costo_total) else 'N/A'}</b>")
         label_total.setObjectName("CostoTotalLabel")
         label_precio = QLabel(f"PRECIO VENTA: <b>{f'$ {float(precio_venta):,.2f}' if self.es_numero(precio_venta) else 'N/A'}</b>")

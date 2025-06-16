@@ -7,7 +7,7 @@ class InventarioModel:
         
     def obtener_productos(self, filtro=None):
         query = """
-            SELECT ig.codigo, ig.nombre, IFNULL(cp.costo_unitario, 0), ig.tipo, IFNULL(inv.cantidad, 0)
+            SELECT ig.codigo, ig.nombre, IFNULL(cp.costo_unitario, 0), IFNULL(inv.cantidad, 0)
             FROM item_general ig
             LEFT JOIN inventario inv ON ig.id = inv.item_id
             LEFT JOIN costos_produccion cp ON ig.id = cp.item_id
@@ -34,29 +34,33 @@ class InventarioModel:
         self.conn.commit()
 
     def obtener_materias_primas(self, filtro=None):
+        query = """
+            SELECT ig.codigo, ig.nombre, IFNULL(cp.costo_unitario, 0), IFNULL(i.cantidad, 0)
+            FROM item_general ig
+            JOIN inventario i ON ig.id = i.item_id
+            LEFT JOIN costos_produccion cp ON ig.id = cp.item_id
+            WHERE UPPER(ig.tipo) = 'MATERIA PRIMA'
+        """
+        params = ()
         if filtro:
-            self.cursor.execute("""
-                SELECT ig.codigo, ig.nombre, ig.tipo, i.cantidad
-                FROM item_general ig
-                JOIN inventario i ON ig.id = i.item_id
-                WHERE ig.tipo = 'MATERIA PRIMA'
-                AND (ig.codigo LIKE ? OR ig.nombre LIKE ? OR ig.tipo LIKE ?)
-            """, (f'%{filtro}%', f'%{filtro}%', f'%{filtro}%'))
-        else:
-            self.cursor.execute("""
-                SELECT ig.codigo, ig.nombre, ig.tipo, i.cantidad
-                FROM item_general ig
-                JOIN inventario i ON ig.id = i.item_id
-                WHERE ig.tipo = 'MATERIA PRIMA'
-            """)
+            query += " AND (lower(ig.codigo) LIKE ? OR lower(ig.nombre) LIKE ?)"
+            params = (f"%{filtro}%", f"%{filtro}%")
+        self.cursor.execute(query, params)
         return self.cursor.fetchall()
     
     def eliminar_item(self, codigo, tipo):
-        self.cursor.execute(
-            "DELETE FROM item_general WHERE codigo = ? AND tipo = ?",
-            (codigo, tipo)
-        )
-        self.conn.commit()
+        # Obtener el id del producto o materia prima
+        self.cursor.execute("SELECT id FROM item_general WHERE codigo = ? AND tipo = ?", (codigo, tipo))
+        row = self.cursor.fetchone()
+        if row:
+            item_id = row[0]
+            # Borra formulaciones y costos_produccion relacionados
+            self.cursor.execute("DELETE FROM formulaciones WHERE producto_id = ?", (item_id,))
+            self.cursor.execute("DELETE FROM costos_produccion WHERE item_id = ?", (item_id,))
+            self.cursor.execute("DELETE FROM inventario WHERE item_id = ?", (item_id,))
+            self.cursor.execute("DELETE FROM item_especifico WHERE item_general_id = ?", (item_id,))
+            self.cursor.execute("DELETE FROM item_general WHERE id = ?", (item_id,))
+            self.conn.commit()
 
     def restar_materia_prima(self, codigo, cantidad_restar):
         self.cursor.execute(
@@ -72,3 +76,36 @@ class InventarioModel:
             (cantidad_restar, codigo)
         )
         self.conn.commit()
+
+    def crear_item_general(self, nombre, codigo, tipo):
+        self.cursor.execute(
+            "INSERT INTO item_general (nombre, codigo, tipo) VALUES (?, ?, ?)",
+            (nombre, codigo, tipo)
+        )
+        self.conn.commit()
+        return self.cursor.lastrowid
+
+    def crear_item_especifico(self, item_general_id, viscosidad, p_g, color, brillo_60, secado, cubrimiento, molienda, ph, poder_tintoreo, volumen, categoria_id):
+        self.cursor.execute(
+            "INSERT INTO item_especifico (item_general_id, viscosidad, p_g, color, brillo_60, secado, cubrimiento, molienda, ph, poder_tintoreo, volumen, categoria_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (item_general_id, viscosidad, p_g, color, brillo_60, secado, cubrimiento, molienda, ph, poder_tintoreo, volumen, categoria_id)
+        )
+        self.conn.commit()
+
+    def crear_costos_produccion(self, item_id, envase, etiqueta, bandeja, plastico, volumen):
+        self.cursor.execute(
+            "INSERT INTO costos_produccion (item_id, envase, etiqueta, bandeja, plastico, volumen, periodo, fecha_calculo) VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m', 'now'), date('now'))",
+            (item_id, envase, etiqueta, bandeja, plastico, volumen)
+        )
+        self.conn.commit()
+
+    def agregar_formulacion(self, producto_id, materia_prima_id, cantidad, unidad=None):
+        self.cursor.execute(
+            "INSERT INTO formulaciones (producto_id, materia_prima_id, cantidad, unidad) VALUES (?, ?, ?, ?)",
+            (producto_id, materia_prima_id, cantidad, unidad)
+        )
+        self.conn.commit()
+    
+    def obtener_categorias(self):
+        self.cursor.execute("SELECT id, nombre FROM categorias")
+        return self.cursor.fetchall()

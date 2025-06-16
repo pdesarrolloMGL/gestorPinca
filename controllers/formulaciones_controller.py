@@ -18,3 +18,6 @@ class FormulacionesController:
 
     def get_volumen_original(self, prod_id):
         return self.model.obtener_volumen_original(prod_id)
+    
+    def get_cantidad_inventario(self, codigo_mp):
+        return self.model.get_cantidad_inventario(codigo_mp)

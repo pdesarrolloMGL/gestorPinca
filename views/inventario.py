@@ -1,15 +1,17 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QStackedWidget, QLabel, QHBoxLayout,
-    QDialog, QFormLayout, QSpinBox, QPushButton, QMessageBox, QLineEdit, QHeaderView, QComboBox
+    QDialog, QFormLayout, QSpinBox, QPushButton, QMessageBox, QLineEdit, QHeaderView, QComboBox, QTableWidget, QAbstractItemView,
 )
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtGui import QIcon, QBrush, QColor
 from controllers.inventario_controller import InventarioController
 from components.buscador import Buscador
 from components.botonera_tabla import BotoneraTablas
 from utils.table_utils import limpiar_celdas_widget, formatear_moneda
 
 class Inventario(QWidget):
+    producto_agregado = pyqtSignal()
+
     def __init__(self):
         super().__init__()
         self.controller = InventarioController()
@@ -47,6 +49,13 @@ class Inventario(QWidget):
         botonera_layout.addWidget(self.btn_restar_materia)
         self.btn_restar_materia.clicked.connect(self.abrir_restar_materia_prima)
         self.btn_restar_materia.setVisible(False)
+
+        self.btn_agregar_producto = QPushButton("Agregar producto")
+        self.btn_agregar_producto.setObjectName("btnAgregarProducto")
+        self.btn_agregar_producto.setStyleSheet("background-color: #28a745; color: white; border-radius: 5px; padding: 6px 18px;")
+        botonera_layout.addWidget(self.btn_agregar_producto)
+        self.btn_agregar_producto.clicked.connect(self.abrir_formulario_producto)
+        self.btn_agregar_producto.setVisible(True)
 
         self.table = QTableWidget()
         self.table.setObjectName("tablaInventario")
@@ -93,13 +102,9 @@ class Inventario(QWidget):
         cantidad = QSpinBox()
         cantidad.setObjectName("cantidadMateriaPrima")
         cantidad.setMaximum(1000000)
-        tipo = QComboBox()
-        tipo.setObjectName("tipoMateriaPrima")
-        tipo.addItems(["MATERIA PRIMA", "INSUMO"])
         form_layout.addRow("Código:", codigo)
         form_layout.addRow("Nombre:", nombre)
         form_layout.addRow("Cantidad:", cantidad)
-        form_layout.addRow("Tipo:", tipo)
         btn_guardar = QPushButton("Guardar")
         btn_guardar.setObjectName("btnGuardarMateriaPrima")
         form_layout.addRow(btn_guardar)
@@ -111,7 +116,7 @@ class Inventario(QWidget):
                     codigo.text(),
                     nombre.text(),
                     cantidad.value(),
-                    tipo.currentText()
+                    "MATERIA PRIMA"  # Tipo fijo
                 )
                 QMessageBox.information(self, "Éxito", "Materia prima agregada correctamente.")
                 dialog.accept()
@@ -119,6 +124,216 @@ class Inventario(QWidget):
                 self.mostrar_materia_prima()
             except Exception as e:
                 QMessageBox.critical(self, "Error", str(e))
+
+        btn_guardar.clicked.connect(guardar)
+        dialog.exec_()
+
+    def abrir_formulario_producto(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Nuevo Producto")
+
+        # Layout principal vertical
+        layout_final = QVBoxLayout(dialog)
+
+        # Layout horizontal para dividir en dos columnas
+        main_layout = QHBoxLayout()
+
+        # ----------- Columna izquierda: Datos del producto -----------
+        left_widget = QWidget()
+        left_layout = QFormLayout(left_widget)
+
+        # Campos generales
+        nombre = QLineEdit()
+        codigo = QLineEdit()
+        categoria = QComboBox()
+        categorias = self.controller.get_categorias()  # [(id, nombre), ...]
+        for cid, nombre_cat in categorias:
+            categoria.addItem(nombre_cat, cid)
+        left_layout.addRow("Nombre:", nombre)
+        left_layout.addRow("Código:", codigo)
+        left_layout.addRow("Categoría:", categoria)
+
+        # Datos técnicos
+        viscosidad = QLineEdit()
+        p_g = QLineEdit()
+        color = QLineEdit()
+        brillo_60 = QLineEdit()
+        secado = QLineEdit()
+        cubrimiento = QLineEdit()
+        molienda = QLineEdit()
+        ph = QLineEdit()
+        poder_tintoreo = QLineEdit()
+        volumen = QLineEdit()
+        left_layout.addRow("Viscosidad:", viscosidad)
+        left_layout.addRow("P/G:", p_g)
+        left_layout.addRow("Color:", color)
+        left_layout.addRow("Brillo 60°:", brillo_60)
+        left_layout.addRow("Secado:", secado)
+        left_layout.addRow("Cubrimiento:", cubrimiento)
+        left_layout.addRow("Molienda:", molienda)
+        left_layout.addRow("pH:", ph)
+        left_layout.addRow("Poder Tintóreo:", poder_tintoreo)
+        left_layout.addRow("Volumen:", volumen)
+
+        # Costos de producción
+        envase = QLineEdit()
+        etiqueta = QLineEdit()
+        bandeja = QLineEdit()
+        plastico = QLineEdit()
+        left_layout.addRow("Envase:", envase)
+        left_layout.addRow("Etiqueta:", etiqueta)
+        left_layout.addRow("Bandeja:", bandeja)
+        left_layout.addRow("Plástico:", plastico)
+
+        # ----------- Columna derecha: Materias primas -----------
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+
+        label_mp = QLabel("Materias primas y cantidades")
+        label_mp.setStyleSheet("font-weight: bold; margin-bottom: 8px;")
+        right_layout.addWidget(label_mp)
+
+        # Trae [(id, nombre), ...] para que el id sea el primer campo
+        materias_primas = self.controller.model.cursor.execute(
+            "SELECT id, nombre FROM item_general WHERE UPPER(tipo) = 'MATERIA PRIMA'"
+        ).fetchall()
+
+        tabla_mp = QTableWidget()
+        tabla_mp.setColumnCount(3)
+        tabla_mp.setHorizontalHeaderLabels(["Materia Prima", "Cantidad", "Unidad"])
+        tabla_mp.setRowCount(1)
+        tabla_mp.setMinimumWidth(420)
+        tabla_mp.setColumnWidth(0, 220)
+        tabla_mp.setColumnWidth(1, 100)
+        tabla_mp.setColumnWidth(2, 80)
+        tabla_mp.verticalHeader().setVisible(False)
+        tabla_mp.horizontalHeader().setStretchLastSection(True)
+        tabla_mp.setEditTriggers(QAbstractItemView.AllEditTriggers)
+        tabla_mp.setSizeAdjustPolicy(QTableWidget.AdjustToContents)
+        tabla_mp.setStyleSheet("""
+            QHeaderView::section {background-color: #2c3e50; color: white; font-weight: bold;}
+            QTableWidget {font-size: 13px;}
+        """)
+
+        def agregar_fila():
+            row = tabla_mp.rowCount()
+            tabla_mp.insertRow(row)
+            combo = QComboBox()
+            for mp in materias_primas:
+                mp_id = mp[0]
+                mp_nombre = mp[1]
+                combo.addItem(mp_nombre, mp_id)
+            combo.setMinimumWidth(200)
+            tabla_mp.setCellWidget(row, 0, combo)
+            cantidad_item = QTableWidgetItem("")
+            cantidad_item.setTextAlignment(Qt.AlignCenter)
+            cantidad_item.setBackground(QBrush(QColor("white")))
+            cantidad_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled)
+            tabla_mp.setItem(row, 1, cantidad_item)
+            unidad_item = QTableWidgetItem("")
+            unidad_item.setTextAlignment(Qt.AlignCenter)
+            unidad_item.setBackground(QBrush(QColor("white")))
+            unidad_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled)
+            tabla_mp.setItem(row, 2, unidad_item)
+
+        # Primera fila
+        combo = QComboBox()
+        for mp in materias_primas:
+            mp_id = mp[0]
+            mp_nombre = mp[1]
+            combo.addItem(mp_nombre, mp_id)
+        combo.setMinimumWidth(200)
+        tabla_mp.setCellWidget(0, 0, combo)
+        cantidad_item = QTableWidgetItem("")
+        cantidad_item.setTextAlignment(Qt.AlignCenter)
+        cantidad_item.setBackground(QBrush(QColor("white")))
+        cantidad_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled)
+        tabla_mp.setItem(0, 1, cantidad_item)
+        unidad_item = QTableWidgetItem("")
+        unidad_item.setTextAlignment(Qt.AlignCenter)
+        unidad_item.setBackground(QBrush(QColor("white")))
+        unidad_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled)
+        tabla_mp.setItem(0, 2, unidad_item)
+
+        btn_agregar_fila = QPushButton("Agregar materia prima")
+        btn_agregar_fila.setStyleSheet("background-color: #28a745; color: white; border-radius: 5px; padding: 6px 18px;")
+        btn_agregar_fila.clicked.connect(agregar_fila)
+
+        right_layout.addWidget(tabla_mp)
+        right_layout.addWidget(btn_agregar_fila)
+        right_layout.addStretch(1)
+
+        # ----------- Ensamblar columnas -----------
+        main_layout.addWidget(left_widget)
+        main_layout.addWidget(right_widget)
+        main_layout.setStretch(0, 2)
+        main_layout.setStretch(1, 1)
+
+        # ----------- Botón guardar debajo de ambas columnas -----------
+        bottom_layout = QHBoxLayout()
+        btn_guardar = QPushButton("Guardar")
+        btn_guardar.setStyleSheet("background-color: #007bff; color: white; border-radius: 5px; padding: 8px 24px; font-size: 15px;")
+        bottom_layout.addStretch(1)
+        bottom_layout.addWidget(btn_guardar)
+        bottom_layout.addStretch(1)
+
+        # ----------- Ensamblar todo en el layout principal -----------
+        layout_final.addLayout(main_layout)
+        layout_final.addLayout(bottom_layout)
+
+        def guardar():
+            print("Emitiendo señal producto_agregado")
+            self.producto_agregado.emit()
+            # 1. Crear item_general
+            nombre_val = nombre.text()
+            codigo_val = codigo.text()
+            tipo = "PRODUCTO"
+            categoria_id = categoria.currentData()
+            item_general_id = self.controller.crear_item_general(nombre_val, codigo_val, tipo)
+
+            # 2. Crear item_especifico
+            self.controller.crear_item_especifico(
+                item_general_id,
+                viscosidad.text(),
+                p_g.text(),
+                color.text(),
+                brillo_60.text(),
+                secado.text(),
+                cubrimiento.text(),
+                molienda.text(),
+                ph.text(),
+                poder_tintoreo.text(),
+                volumen.text(),
+                categoria_id
+            )
+
+            # 3. Crear costos_produccion
+            self.controller.crear_costos_produccion(
+                item_general_id,
+                envase.text(),
+                etiqueta.text(),
+                bandeja.text(),
+                plastico.text(),
+                volumen.text()
+            )
+
+            # 4. Guardar formulaciones (receta) usando el id de la materia prima y unidad opcional
+            for row in range(tabla_mp.rowCount()):
+                combo = tabla_mp.cellWidget(row, 0)
+                cantidad_item = tabla_mp.item(row, 1)
+                unidad_item = tabla_mp.item(row, 2)
+                if combo is not None and cantidad_item is not None and unidad_item is not None:
+                    mp_id = combo.currentData()
+                    try:
+                        cantidad = float(cantidad_item.text())
+                    except Exception:
+                        cantidad = None
+                    unidad = unidad_item.text().strip() if unidad_item.text() else None
+                    if mp_id and cantidad:
+                        self.controller.agregar_formulacion(item_general_id, mp_id, cantidad, unidad)
+            QMessageBox.information(self, "Éxito", "Producto creado correctamente.")
+            dialog.accept()
+            self.mostrar_productos()
 
         btn_guardar.clicked.connect(guardar)
         dialog.exec_()
@@ -229,8 +444,9 @@ class Inventario(QWidget):
         self.botonera.btn_agregar.setVisible(False)
         self.btn_sumar_materia.setVisible(False)
         self.btn_restar_materia.setVisible(False)
+        self.btn_agregar_producto.setVisible(True)
         resultados = self.controller.get_productos(filtro)
-        columnas = ["N°", "CODIGO", "NOMBRE", "COSTO UNITARIO", "TIPO", "CANTIDAD", "ELIMINAR"]
+        columnas = ["N°", "CODIGO", "NOMBRE", "COSTO UNITARIO", "CANTIDAD", "ELIMINAR"]
         limpiar_celdas_widget(self.table)
         self.table.setRowCount(len(resultados))
         self.table.setColumnCount(len(columnas))
@@ -261,6 +477,7 @@ class Inventario(QWidget):
         self.botonera.btn_agregar.setVisible(True)
         self.btn_sumar_materia.setVisible(True)
         self.btn_restar_materia.setVisible(True)
+        self.btn_agregar_producto.setVisible(False)
 
         resultados = self.controller.get_materias_primas(filtro)
         columnas = ["N°", "CODIGO", "NOMBRE", "COSTO UNITARIO", "CANTIDAD", "ELIMINAR"]
