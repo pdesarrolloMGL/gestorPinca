@@ -3,6 +3,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QIcon
 from views.inventario import Inventario
 from views.formulaciones import Formulaciones
+from views.ordenes_produccion import OrdenesProduccion  # NUEVO: importa la vista
 
 class Menu(QMainWindow):
     def __init__(self):
@@ -46,6 +47,7 @@ class Menu(QMainWindow):
         # Instancia las vistas
         inventario_widget = Inventario()
         formulaciones_widget = Formulaciones()
+        ordenes_widget = OrdenesProduccion()  # NUEVO
 
         # CONECTA LA SEÑAL AQUÍ
         inventario_widget.producto_agregado.connect(formulaciones_widget.recargar_productos)
@@ -53,6 +55,7 @@ class Menu(QMainWindow):
         botones = {
             "Inventario": inventario_widget,
             "Formulaciones": formulaciones_widget,
+            "Órdenes de Producción": ordenes_widget,  # NUEVO
             # "Clientes": Clientes(),
             # "Costos": Costos(),
             # "Facturación": Facturacion(),
@@ -66,7 +69,7 @@ class Menu(QMainWindow):
         for nombre, widget in botones.items():
             btn = QPushButton(nombre)
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setObjectName(f"SidebarBtn_{nombre.lower()}")
+            btn.setObjectName(f"SidebarBtn_{nombre.lower().replace(' ', '_')}")
             btn.setProperty("active", False)
             btn.clicked.connect(lambda _, w=widget, n=nombre: self.cambiar_vista(w, n))
             sidebar_layout.addWidget(btn)
@@ -97,3 +100,4 @@ class Menu(QMainWindow):
         btn_actual = self.sidebar_buttons[nombre]
         btn_actual.setProperty("active", True)
         btn_actual.style().unpolish(btn_actual)
+        btn_actual.style().polish(btn_actual)

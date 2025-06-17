@@ -218,10 +218,6 @@ class Formulaciones(QWidget):
         except Exception:
             volumen_personalizado = None
 
-        # DEBUG prints para depuración
-        print("volumen_original:", volumen_original)
-        print("volumen_personalizado:", volumen_personalizado)
-
         self.datos_tecnicos_tabla.setRowCount(0)
         if prod_id:
             datos = self.controller.get_datos_tecnicos(prod_id)
@@ -262,7 +258,6 @@ class Formulaciones(QWidget):
         if volumen_original and volumen_personalizado:
             factor_volumen = volumen_personalizado / volumen_original
 
-        print("factor_volumen:", factor_volumen)
 
         self.table.setRowCount(0)
         self.table.clearContents()
@@ -275,7 +270,6 @@ class Formulaciones(QWidget):
         suma_total = 0.0
         for i, (codigo, nombre, costo_unitario, cantidad, unidad) in enumerate(materias):
             cantidad_ajustada = float(cantidad) * factor_volumen
-            print(f"cantidad base: {cantidad}, cantidad ajustada: {cantidad_ajustada}")
 
             item_n = QTableWidgetItem(str(i + 1))
             item_n.setTextAlignment(Qt.AlignCenter)
@@ -334,8 +328,6 @@ class Formulaciones(QWidget):
             except Exception:
                 pass
 
-        print("suma_total:", suma_total)
-
         self.total_label.setText(f"TOTAL COSTO MATERIA PRIMA: $ {suma_total:,.2f}")
 
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)  # N°
@@ -361,10 +353,6 @@ class Formulaciones(QWidget):
 
         costo_total = costo_mp_galon + costo_mod + envase + etiqueta + bandeja + plastico
         precio_venta = costo_total * 1.4 if costo_total else 0
-
-        print("costo_mp_galon:", costo_mp_galon)
-        print("costo_total:", costo_total)
-        print("precio_venta:", precio_venta)
 
         fila1 = QHBoxLayout()
         fila2 = QHBoxLayout()
@@ -418,3 +406,64 @@ class Formulaciones(QWidget):
             return True
         except (TypeError, ValueError):
             return False
+
+    def mostrar_costos_orden(self, orden_id):
+        # 1. Obtener datos de la orden
+        orden = None
+        for o in self.controller.get_ordenes():
+            if (isinstance(o, dict) and o['id'] == orden_id) or (isinstance(o, tuple) and o[0] == orden_id):
+                orden = o
+                break
+        if not orden:
+            QMessageBox.warning(self, "Error", "No se encontró la orden seleccionada")
+            return
+
+        # 2. Obtener producto y cantidad producida
+        producto_id = orden['id'] if isinstance(orden, dict) else orden[0]
+        cantidad_producida = orden['cantidad_producida'] if isinstance(orden, dict) else orden[3]
+
+        # 3. Obtener formulación y volumen base
+        materias = self.controller.model.puede_producir(producto_id, cantidad_producida, solo_materias=True)
+        self.controller.model.cursor.execute("SELECT volumen FROM item_especifico WHERE item_general_id = ?", (producto_id,))
+        row = self.controller.model.cursor.fetchone()
+        volumen_base = float(row[0]) if row and row[0] is not None else 1
+
+        # 4. Calcular costos de materias primas
+        total_mp = 0.0
+        for mp in materias:
+            # mp debe tener: id, codigo, nombre, cantidad_base, unidad, costo_unitario
+            costo_unitario = mp.get('costo_unitario', 0) if isinstance(mp, dict) else (mp[5] if len(mp) > 5 else 0)
+            cantidad_base = mp.get('cantidad', 0) if isinstance(mp, dict) else mp[3]
+            cantidad_necesaria = float(cantidad_base) * (cantidad_producida / volumen_base)
+            total_mp += float(costo_unitario) * cantidad_necesaria
+
+        # 5. Obtener costos fijos
+        self.controller.model.cursor.execute("""
+            SELECT costo_mod, envase, etiqueta, bandeja, plastico
+            FROM costos_produccion
+            WHERE item_id = ?
+            ORDER BY fecha_calculo DESC LIMIT 1
+        """, (producto_id,))
+        costos = self.controller.model.cursor.fetchone()
+        costo_mod = float(costos[0]) if costos and costos[0] else 0
+        envase = float(costos[1]) if costos and costos[1] else 0
+        etiqueta = float(costos[2]) if costos and costos[2] else 0
+        bandeja = float(costos[3]) if costos and costos[3] else 0
+        plastico = float(costos[4]) if costos and costos[4] else 0
+
+        # 6. Calcular costo total
+        costo_total = total_mp + costo_mod + envase + etiqueta + bandeja + plastico
+
+        # 7. Mostrar en un QMessageBox (puedes adaptarlo a un QLabel o layout)
+        mensaje = (
+            f"<b>COSTOS DE LA ORDEN</b><br>"
+            f"Materia Prima: <b>${total_mp:,.2f}</b><br>"
+            f"MOD: <b>${costo_mod:,.2f}</b><br>"
+            f"Envase: <b>${envase:,.2f}</b><br>"
+            f"Etiqueta: <b>${etiqueta:,.2f}</b><br>"
+            f"Bandeja: <b>${bandeja:,.2f}</b><br>"
+            f"Plástico: <b>${plastico:,.2f}</b><br>"
+            f"<hr>"
+            f"<b>COSTO TOTAL PRODUCCIÓN: ${costo_total:,.2f}</b>"
+        )
+        QMessageBox.information(self, "Costos de Producción", mensaje)
