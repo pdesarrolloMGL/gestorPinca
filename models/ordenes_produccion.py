@@ -129,9 +129,9 @@ class OrdenesProduccionModel:
         cursor.execute("UPDATE ordenes_produccion SET estado = ? WHERE id = ?", (nuevo_estado, orden_id))
         self.conn.commit()
 
-    def actualizar_descripcion_orden(self, orden_id, nueva_desc):
+    def actualizar_observaciones_orden(self, orden_id, nueva_desc):
         cursor = self.cursor
-        cursor.execute("UPDATE ordenes_produccion SET descripcion = ? WHERE id = ?", (nueva_desc, orden_id))
+        cursor.execute("UPDATE ordenes_produccion SET observaciones = ? WHERE id = ?", (nueva_desc, orden_id))
         self.conn.commit()
 
     def actualizar_fecha_fin_orden(self, orden_id, nueva_fecha):

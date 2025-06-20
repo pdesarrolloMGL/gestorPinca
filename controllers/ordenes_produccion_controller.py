@@ -34,8 +34,8 @@ class OrdenesProduccionController:
     def actualizar_estado_orden(self, orden_id, nuevo_estado):
         self.model.actualizar_estado_orden(orden_id, nuevo_estado)
 
-    def actualizar_descripcion_orden(self, orden_id, nueva_desc):
-        self.model.actualizar_descripcion_orden(orden_id, nueva_desc)
+    def actualizar_observaciones_orden(self, orden_id, nueva_desc):
+        self.model.actualizar_observaciones_orden(orden_id, nueva_desc)
 
     def actualizar_fecha_fin_orden(self, orden_id, nueva_fecha):
         self.model.actualizar_fecha_fin_orden(orden_id, nueva_fecha)

@@ -1,8 +1,8 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QComboBox, QTableWidget, QTableWidgetItem,
-    QHBoxLayout, QPushButton, QLineEdit, QHeaderView, QMessageBox, QGroupBox, QFrame
+    QHBoxLayout, QPushButton, QLineEdit, QHeaderView, QMessageBox, QGroupBox, QFrame, QDateEdit
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QDate
 from PyQt5.QtGui import QColor
 from controllers.ordenes_produccion_controller import OrdenesProduccionController
 
@@ -12,11 +12,6 @@ class OrdenesProduccion(QWidget):
         self.controller = OrdenesProduccionController()
 
         self.setStyleSheet("""
-            QWidget {
-                background-color: #dadada;
-                font-family: 'Segoe UI', sans-serif;
-                font-size: 14px;
-            }
             QComboBox {
                 min-width: 220px;
                 max-width: 350px;
@@ -52,8 +47,8 @@ class OrdenesProduccion(QWidget):
                 background-color: #217dbb;
             }
             QPushButton#btnVerCostos {
-                background-color: #77c888;
-                color: black;
+                background-color: #28a745;
+                color: white;
                 border-radius: 8px;
                 padding: 10px 24px;
                 font-size: 15px;
@@ -61,12 +56,12 @@ class OrdenesProduccion(QWidget):
                 margin-left: 8px;
             }
             QPushButton#btnVerCostos:hover {
-                background-color: #0f521d;
+                background-color: #218838;
                 color: white;
             }
             QGroupBox {
                 font-weight: bold;
-                color: #2d3436;
+                color: #000000;
                 border: 2px solid #474747;
                 border-radius: 10px;
                 margin-top: 10px;
@@ -74,27 +69,19 @@ class OrdenesProduccion(QWidget):
                 padding: 8px 4px 4px 4px;
             }
             QTableWidget {
-                background: #f8f9fa;
+                background: #ffffff;
                 border: 1px solid #bfc9d1;
                 border-radius: 8px;
                 font-size: 15px;
-                selection-background-color: #d1e7dd;
+                selection-background-color: #0083CB;
                 gridline-color: #bfc9d1;
             }
-            QHeaderView::section {
-                background-color: #dbdbdb;
-                color: black;
-                font-weight: bold;
-                padding: 6px;
-                border: none;
-            }
             QLabel#ResumenCostos {
-                background: #fff;
+                background: #ffffff;
                 border: 1.5px solid #dbdbdb;
                 border-radius: 8px;
                 padding: 18px 24px;
                 font-size: 16px;
-                margin-top: 10px;
             }
             QLabel#Titulo {
                 font-size: 22px;
@@ -138,16 +125,15 @@ class OrdenesProduccion(QWidget):
 
         main_layout.addLayout(selector_layout)
 
-        # Tabla de órdenes (sin columna ID, con DESCRIPCIÓN, editable ESTADO y FECHA_FIN)
+        # Tabla de órdenes (sin columna ID, con OBSERVACIONES, editable ESTADO)
         self.ordenes_tabla = QTableWidget()
-        self.ordenes_tabla.setColumnCount(6)
+        self.ordenes_tabla.setColumnCount(5)
         self.ordenes_tabla.setHorizontalHeaderLabels([
-            "Código", "Producto", "Cantidad", "Descripción", "Estado", "Fecha Fin"
+            "Código", "Producto", "Cantidad", "Observaciones", "Estado"
         ])
         self.ordenes_tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.ordenes_tabla.verticalHeader().setVisible(False)
         self.ordenes_tabla.setSelectionBehavior(QTableWidget.SelectRows)
-        self.ordenes_tabla.cellClicked.connect(self.mostrar_detalle_orden)
         self.ordenes_tabla.itemChanged.connect(self.editar_celda_orden)
         main_layout.addWidget(self.ordenes_tabla)
 
@@ -190,12 +176,15 @@ class OrdenesProduccion(QWidget):
         self.orden_id_seleccionada = None
         self.cargar_ordenes()
 
+        # Selección de fila para mostrar detalle
+        self.ordenes_tabla.selectionModel().selectionChanged.connect(self.on_fila_seleccionada)
+
     def cargar_ordenes(self):
         ordenes = self.controller.get_ordenes()
         self.ordenes_tabla.blockSignals(True)
         self.ordenes_tabla.setRowCount(0)
         for orden in ordenes:
-            # orden = (id, codigo, producto, cantidad, descripcion, estado, fecha_fin, ...)
+            # orden = (id, codigo, producto, cantidad, observaciones, estado ...)
             row = self.ordenes_tabla.rowCount()
             self.ordenes_tabla.insertRow(row)
             # Código (guarda el id real en UserRole)
@@ -206,63 +195,56 @@ class OrdenesProduccion(QWidget):
             self.ordenes_tabla.setItem(row, 1, QTableWidgetItem(str(orden[2])))
             # Cantidad
             self.ordenes_tabla.setItem(row, 2, QTableWidgetItem(str(orden[3])))
-            # Descripción (editable)
-            desc_item = QTableWidgetItem(str(orden[4]) if len(orden) > 4 else "")
-            desc_item.setFlags(desc_item.flags() | Qt.ItemIsEditable)
-            self.ordenes_tabla.setItem(row, 3, desc_item)
-            # Estado (editable, color)
-            estado = str(orden[5]).upper() if len(orden) > 5 else ""
-            estado_item = QTableWidgetItem(estado)
-            estado_item.setFlags(estado_item.flags() | Qt.ItemIsEditable)
-            estado_item.setTextAlignment(Qt.AlignCenter)
-            if estado in ("FINALIZADA", "COMPLETADA", "TERMINADA"):
-                estado_item.setBackground(QColor("#77c888"))
-                estado_item.setForeground(QColor("#222"))
-            elif estado in ("EN PROCESO", "PROCESO", "PENDIENTE"):
-                estado_item.setBackground(QColor("#ffe066"))
-                estado_item.setForeground(QColor("#222"))
-            elif estado in ("CANCELADA", "ANULADA", "RECHAZADA"):
-                estado_item.setBackground(QColor("#dc3545"))
-                estado_item.setForeground(QColor("white"))
+            # Observaciones (editable)
+            obs_item = QTableWidgetItem(str(orden[4]) if len(orden) > 4 and orden[4] is not None else "")
+            obs_item.setFlags(obs_item.flags() | Qt.ItemIsEditable)
+            self.ordenes_tabla.setItem(row, 3, obs_item)
+            # Estado como ComboBox
+            estado_combo = QComboBox()
+            estados = ["PENDIENTE", "EN PROCESO", "FINALIZADA", "CANCELADA"]
+            estado_actual = str(orden[5]).upper() if len(orden) > 5 else ""
+            estado_combo.addItems(estados)
+            if estado_actual in estados:
+                estado_combo.setCurrentText(estado_actual)
             else:
-                estado_item.setBackground(QColor("#dbdbdb"))
-                estado_item.setForeground(QColor("#222"))
-            self.ordenes_tabla.setItem(row, 4, estado_item)
-            # Fecha Fin (editable)
-            fecha_item = QTableWidgetItem(str(orden[6]) if len(orden) > 6 else "")
-            fecha_item.setFlags(fecha_item.flags() | Qt.ItemIsEditable)
-            self.ordenes_tabla.setItem(row, 5, fecha_item)
+                estado_combo.setCurrentIndex(0)
+            # Colores según estado
+            def set_estado_color(combo, estado):
+                if estado == "FINALIZADA":
+                    combo.setStyleSheet("QComboBox { background-color: #77c888; color: #222; }")
+                elif estado == "EN PROCESO":
+                    combo.setStyleSheet("QComboBox { background-color: #ffe066; color: #222; }")
+                elif estado == "PENDIENTE":
+                    combo.setStyleSheet("QComboBox { background-color: #ffe066; color: #222; }")
+                elif estado == "CANCELADA":
+                    combo.setStyleSheet("QComboBox { background-color: #dc3545; color: white; }")
+                else:
+                    combo.setStyleSheet("QComboBox { background-color: #dbdbdb; color: #222; }")
+            set_estado_color(estado_combo, estado_actual)
+            def on_estado_changed(value, combo=estado_combo, row=row):
+                set_estado_color(combo, value)
+                self.cambiar_estado_orden(row, value)
+            estado_combo.currentTextChanged.connect(on_estado_changed)
+            self.ordenes_tabla.setCellWidget(row, 4, estado_combo)
         self.ordenes_tabla.blockSignals(False)
-    
+
+    def on_fila_seleccionada(self, selected, deselected):
+        indexes = selected.indexes()
+        if indexes:
+            row = indexes[0].row()
+            self.mostrar_detalle_orden(row, 0)
+
+    def cambiar_estado_orden(self, row, nuevo_estado):
+        orden_id = self.ordenes_tabla.item(row, 0).data(Qt.UserRole)
+        self.controller.actualizar_estado_orden(orden_id, nuevo_estado)
+
     def editar_celda_orden(self, item):
         row = item.row()
         col = item.column()
         orden_id = self.ordenes_tabla.item(row, 0).data(Qt.UserRole)
-        if col == 3:  # Descripción
-            nueva_desc = item.text()
-            self.controller.actualizar_descripcion_orden(orden_id, nueva_desc)
-        elif col == 4:  # Estado
-            nuevo_estado = item.text().upper()
-            self.controller.actualizar_estado_orden(orden_id, nuevo_estado)
-            # Desactivar señales para evitar bucle
-            self.ordenes_tabla.blockSignals(True)
-            item.setText(nuevo_estado)
-            if nuevo_estado in ("FINALIZADA", "COMPLETADA", "TERMINADA"):
-                item.setBackground(QColor("#77c888"))
-                item.setForeground(QColor("#222"))
-            elif nuevo_estado in ("EN PROCESO", "PROCESO", "PENDIENTE"):
-                item.setBackground(QColor("#ffe066"))
-                item.setForeground(QColor("#222"))
-            elif nuevo_estado in ("CANCELADA", "ANULADA", "RECHAZADA"):
-                item.setBackground(QColor("#dc3545"))
-                item.setForeground(QColor("white"))
-            else:
-                item.setBackground(QColor("#dbdbdb"))
-                item.setForeground(QColor("#222"))
-            self.ordenes_tabla.blockSignals(False)
-        elif col == 5:  # Fecha Fin
-            nueva_fecha = item.text()
-            self.controller.actualizar_fecha_fin_orden(orden_id, nueva_fecha)
+        if col == 3:  # Observaciones
+            nueva_obs = item.text()
+            self.controller.actualizar_observaciones_orden(orden_id, nueva_obs)
 
     def crear_orden(self):
         prod_id = self.producto_combo.currentData()
@@ -352,19 +334,42 @@ class OrdenesProduccion(QWidget):
         plastico = float(costos[4]) if costos and costos[4] else 0
 
         resumen = f"""
-        <div>
-            {label_costo_mp}<br>
-            <span style='background:#d0ebff; color:#222; font-weight:bold;'>&nbsp;MOD: ${costo_mod:,.2f}&nbsp;</span><br>
-            <span style='background:#ffd6e0; color:#222; font-weight:bold;'>&nbsp;Envase: ${envase:,.2f}&nbsp;</span><br>
-            <span style='background:#e9fac8; color:#222; font-weight:bold;'>&nbsp;Etiqueta: ${etiqueta:,.2f}&nbsp;</span><br>
-            <span style='background:#fff3bf; color:#222; font-weight:bold;'>&nbsp;Bandeja: ${bandeja:,.2f}&nbsp;</span><br>
-            <span style='background:#e7eaf6; color:#222; font-weight:bold;'>&nbsp;Plástico: ${plastico:,.2f}&nbsp;</span><br>
-            <span style='background:#ffe066; color:#222; font-weight:bold;'>&nbsp;COSTO TOTAL PRODUCCIÓN: ${costo_mp + costo_mod + envase + etiqueta + bandeja + plastico:,.2f}&nbsp;</span><br>
-            <span style='background:#b2f2bb; color:#222; font-weight:bold;'>&nbsp;PRECIO DE VENTA SUGERIDO: ${(costo_mp + costo_mod + envase + etiqueta + bandeja + plastico)*1.4:,.2f}&nbsp;</span><br>
-            <br>
-            TOTAL MATERIA PRIMA USADA: <b>{total_materia_prima:,.2f} {unidad_principal}</b><br>
-            MAX. PRODUCTOS POSIBLES CON STOCK ACTUAL: <b>{int(max_productos_posibles) if max_productos_posibles != float('inf') else 'N/A'}</b>
-        </div>
+        <table cellpadding='6' cellspacing='0' style='border-collapse:separate; border-spacing:0 4px;'>
+            <tr>
+                <td style='background:#ffe066; color:#222; font-weight:bold; border-radius:4px; padding:6px 16px;'>COSTO MP/Galón: ${costo_mp:,.2f}</td>
+            </tr>
+            <tr>
+                <td style='background:#d0ebff; color:#222; font-weight:bold; border-radius:4px; padding:6px 16px;'>MOD: ${costo_mod:,.2f}</td>
+            </tr>
+            <tr>
+                <td style='background:#ffd6e0; color:#222; font-weight:bold; border-radius:4px; padding:6px 16px;'>Envase: ${envase:,.2f}</td>
+            </tr>
+            <tr>
+                <td style='background:#e9fac8; color:#222; font-weight:bold; border-radius:4px; padding:6px 16px;'>Etiqueta: ${etiqueta:,.2f}</td>
+            </tr>
+            <tr>
+                <td style='background:#fff3bf; color:#222; font-weight:bold; border-radius:4px; padding:6px 16px;'>Bandeja: ${bandeja:,.2f}</td>
+            </tr>
+            <tr>
+                <td style='background:#e7eaf6; color:#222; font-weight:bold; border-radius:4px; padding:6px 16px;'>Plástico: ${plastico:,.2f}</td>
+            </tr>
+            <tr>
+                <td style='background:#ffe066; color:#222; font-weight:bold; border-radius:4px; padding:6px 16px;'>COSTO TOTAL PRODUCCIÓN: ${(costo_mp + costo_mod + envase + etiqueta + bandeja + plastico):,.2f}</td>
+            </tr>
+            <tr>
+                <td style='background:#b2f2bb; color:#222; font-weight:bold; border-radius:4px; padding:6px 16px;'>PRECIO DE VENTA SUGERIDO: ${(costo_mp + costo_mod + envase + etiqueta + bandeja + plastico)*1.4:,.2f}</td>
+            </tr>
+            <tr>
+                <td style='padding-top:12px; font-size:15px; color:#222;'>
+                    TOTAL MATERIA PRIMA USADA: <b>{total_materia_prima:,.2f} {unidad_principal}</b>
+                </td>
+            </tr>
+            <tr>
+                <td style='font-size:15px; color:#222;'>
+                    MAX. PRODUCTOS POSIBLES CON STOCK ACTUAL: <b>{int(max_productos_posibles) if max_productos_posibles != float('inf') else 'N/A'}</b>
+                </td>
+            </tr>
+        </table>
         """
         self.resumen_label.setText(resumen)
 
@@ -393,9 +398,6 @@ class OrdenesProduccion(QWidget):
         self.controller.model.cursor.execute("SELECT volumen FROM item_especifico WHERE item_general_id = ?", (producto_id,))
         row = self.controller.model.cursor.fetchone()
         volumen_base = float(row[0]) if row and row[0] is not None else 1
-
-        # Usar la unidad de la primera materia prima
-        unidad_principal = detalles[0]['unidad'] if detalles else 'galon'
 
         # Calcular costos de materias primas
         total_mp = 0.0

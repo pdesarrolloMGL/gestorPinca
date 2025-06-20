@@ -292,7 +292,7 @@ QComboBox::down-arrow:on { /* Cuando está presionado */
     border-radius: 6px;
 }
 
-#tituloLabel {
+        #tituloLabel {
             font-size: 22px;
             font-weight: bold;
             color: #2c3e50;
