@@ -457,7 +457,11 @@ class Inventario(QWidget):
             item_n.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(i, 0, item_n)
             for j, valor in enumerate(fila):
-                item = QTableWidgetItem(str(valor))
+                if columnas[j + 1] == "CANTIDAD":
+                    valor = 0 if valor is None else valor
+                    item = QTableWidgetItem(f"{float(valor):.2f}")
+                else:
+                    item = QTableWidgetItem(str(valor))
                 if columnas[j + 1] != "NOMBRE":
                     item.setTextAlignment(Qt.AlignCenter)
                 if columnas[j + 1] == "COSTO UNITARIO":
@@ -493,7 +497,9 @@ class Inventario(QWidget):
             for j, valor in enumerate(fila):
                 if columnas[j + 1] == "CANTIDAD":
                     valor = 0 if valor is None else valor
-                item = QTableWidgetItem(str(valor))
+                    item = QTableWidgetItem(f"{float(valor):.2f}")
+                else:
+                    item = QTableWidgetItem(str(valor))
                 if columnas[j + 1] != "NOMBRE":
                     item.setTextAlignment(Qt.AlignCenter)
                 if columnas[j + 1] == "COSTO UNITARIO":

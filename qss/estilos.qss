@@ -369,16 +369,12 @@ QComboBox::down-arrow:on { /* Cuando está presionado */
         QPushButton#btnExportarExcel {
             background-color: #28a745;
             color: white;
-            border-radius: 8px;
-            padding: 10px 24px;
-            font-size: 15px;
-            font-weight: bold;
+            border-radius: 5px;
+            padding: 5px 12px;
         }
         QPushButton#btnEliminarOrden {
             background-color: #dc3545;
             color: white;
-            border-radius: 8px;
-            padding: 10px 24px;
-            font-size: 15px;
-            font-weight: bold;
+            border-radius: 5px;
+            padding: 5px 12px;
         }

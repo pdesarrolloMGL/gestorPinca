@@ -35,7 +35,7 @@ class FormularioFactura(QDialog):
         self.input_retencion.setMaximum(1e9)
         self.input_retencion.setPrefix("$")
         self.input_retencion.setDecimals(2)
-        self.input_estado = QLineEdit("pendiente")
+        self.input_estado = QLineEdit("PENDIENTE")
 
         layout.addRow("N° Factura:", self.input_numero)
         layout.addRow("Cliente:", self.combo_cliente)

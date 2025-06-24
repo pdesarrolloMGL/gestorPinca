@@ -106,29 +106,19 @@ class OrdenesProduccion(QWidget):
 
         # Selector de producto y botones
         selector_layout = QHBoxLayout()
+        input_layout = QHBoxLayout()
         self.producto_combo = QComboBox()
         self.productos = self.controller.get_productos()
         self.producto_combo.addItem("Seleccione producto...", None)
         for prod in self.productos:
             self.producto_combo.addItem(prod[1], prod[0])
-        selector_layout.addWidget(self.producto_combo)
+        input_layout.addWidget(self.producto_combo)
 
         self.cantidad_input = QLineEdit()
         self.cantidad_input.setPlaceholderText("Introduzca volumen a producir")
-        selector_layout.addWidget(self.cantidad_input)
+        input_layout.addWidget(self.cantidad_input)
 
-        self.btn_nueva_orden = QPushButton("Crear Orden")
-        self.btn_nueva_orden.setObjectName("btnNuevaOrden")
-        self.btn_nueva_orden.clicked.connect(self.crear_orden)
-        selector_layout.addWidget(self.btn_nueva_orden)
-
-        self.btn_exportar_excel = QPushButton("Exportar Orden a Excel")
-        self.btn_exportar_excel.setObjectName("btnExportarExcel")
-        self.btn_exportar_excel.clicked.connect(self.exportar_orden_excel)
-        self.btn_exportar_excel.setIcon(QIcon("assets/download.png"))
-        selector_layout.addWidget(self.btn_exportar_excel)
-
-        main_layout.addLayout(selector_layout)
+        main_layout.addLayout(input_layout)
 
         # --- CREA LA TABLA ANTES DEL FILTRO ---
         self.ordenes_tabla = QTableWidget()
@@ -146,18 +136,6 @@ class OrdenesProduccion(QWidget):
         self.filtro_input.setPlaceholderText("Buscar por código o nombre...")
         self.filtro_input.textChanged.connect(self.filtrar_ordenes)
         main_layout.insertWidget(main_layout.indexOf(self.ordenes_tabla), self.filtro_input)
-
-        self.btn_exportar_todas = QPushButton("Exportar TODAS las Órdenes a Excel")
-        self.btn_exportar_todas.setObjectName("btnExportarExcel")
-        self.btn_exportar_todas.clicked.connect(self.exportar_todas_ordenes_excel)
-        self.btn_exportar_todas.setIcon(QIcon("assets/download.png"))
-        selector_layout.addWidget(self.btn_exportar_todas)
-        
-        self.btn_eliminar_orden = QPushButton("Eliminar Orden")
-        self.btn_eliminar_orden.setObjectName("btnEliminarOrden")
-        self.btn_eliminar_orden.setIcon(QIcon("assets/trash.png"))
-        self.btn_eliminar_orden.clicked.connect(self.eliminar_orden)
-        selector_layout.addWidget(self.btn_eliminar_orden)
 
         bottom_layout = QHBoxLayout()
 
@@ -192,6 +170,30 @@ class OrdenesProduccion(QWidget):
         bottom_layout.addWidget(resumen_group, 3)
 
         main_layout.addLayout(bottom_layout)
+
+        self.btn_nueva_orden = QPushButton("Crear Orden")
+        self.btn_nueva_orden.clicked.connect(self.crear_orden)
+        selector_layout.addWidget(self.btn_nueva_orden)
+
+        self.btn_exportar_excel = QPushButton("Exportar Orden a Excel")
+        self.btn_exportar_excel.setObjectName("btnExportarExcel")
+        self.btn_exportar_excel.clicked.connect(self.exportar_orden_excel)
+        self.btn_exportar_excel.setIcon(QIcon("assets/download.png"))
+        selector_layout.addWidget(self.btn_exportar_excel)
+
+        self.btn_exportar_todas = QPushButton("Exportar todo")
+        self.btn_exportar_todas.setObjectName("btnExportarExcel")
+        self.btn_exportar_todas.clicked.connect(self.exportar_todas_ordenes_excel)
+        self.btn_exportar_todas.setIcon(QIcon("assets/download.png"))
+        selector_layout.addWidget(self.btn_exportar_todas)
+        
+        self.btn_eliminar_orden = QPushButton("Eliminar Orden")
+        self.btn_eliminar_orden.setObjectName("btnEliminarOrden")
+        self.btn_eliminar_orden.setIcon(QIcon("assets/trash.png"))
+        self.btn_eliminar_orden.clicked.connect(self.eliminar_orden)
+        selector_layout.addWidget(self.btn_eliminar_orden)
+
+        main_layout.addLayout(selector_layout)
 
         self.orden_id_seleccionada = None
         self.cargar_ordenes()
@@ -339,12 +341,14 @@ class OrdenesProduccion(QWidget):
             # Producto
             self.ordenes_tabla.setItem(row, 1, QTableWidgetItem(str(orden[2])))
             # Cantidad
-            self.ordenes_tabla.setItem(row, 2, QTableWidgetItem(str(orden[3])))
+            cantidad = float(orden[3]) if orden[3] is not None else 0
+            item_cantidad = QTableWidgetItem(f"{float(cantidad):.2f}")
+            self.ordenes_tabla.setItem(row, 2, item_cantidad)
             # Observaciones (editable)
             obs_item = QTableWidgetItem(str(orden[4]) if len(orden) > 4 and orden[4] is not None else "")
             obs_item.setFlags(obs_item.flags() | Qt.ItemIsEditable)
             self.ordenes_tabla.setItem(row, 3, obs_item)
-            # Estado como ComboBox
+            # Estado como ComboBox  
             estado_combo = QComboBox()
             estados = ["PENDIENTE", "EN PROCESO", "FINALIZADA", "CANCELADA"]
             estado_actual = str(orden[5]).upper() if len(orden) > 5 else ""
@@ -415,9 +419,7 @@ class OrdenesProduccion(QWidget):
             fecha_fin = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self.controller.actualizar_fecha_fin_orden(orden_id, fecha_fin)
 
-            # Descontar insumos y sumar producto terminado
-            detalles = self.controller.get_detalle_orden(orden_id)
-            # Obtener cantidad producida y producto_id
+            # Solo sumar producto terminado, NO descontar insumos aquí
             row_tabla = None
             for row_idx in range(self.ordenes_tabla.rowCount()):
                 if self.ordenes_tabla.item(row_idx, 0).data(Qt.UserRole) == orden_id:
@@ -427,19 +429,13 @@ class OrdenesProduccion(QWidget):
                 cantidad_producida = float(self.ordenes_tabla.item(row_tabla, 2).text())
                 producto_nombre = self.ordenes_tabla.item(row_tabla, 1).text()
                 producto_id = self.controller.get_product_id_by_name(producto_nombre)
-                # Descontar insumos
-                for d in detalles:
-                    self.controller.model.cursor.execute(
-                        "UPDATE inventario SET cantidad = cantidad - ?, apartada = apartada - ? WHERE item_id = (SELECT id FROM item_general WHERE codigo = ?)",
-                        (d['cantidad_necesaria'], d['cantidad_necesaria'], d['codigo'])
-                    )
                 # Sumar producto terminado
                 self.controller.model.cursor.execute(
                     "UPDATE inventario SET cantidad = cantidad + ? WHERE item_id = ?",
                     (cantidad_producida, producto_id)
                 )
                 self.controller.model.conn.commit()
-                print(f"[INVENTARIO] Actualizado: descontados insumos y sumado producto terminado para orden {orden_id}")
+                print(f"[INVENTARIO] Actualizado: sumado producto terminado para orden {orden_id}")
             else:
                 print(f"[INVENTARIO] No se encontró la fila de la orden {orden_id} para actualizar inventario.")
 
@@ -494,9 +490,7 @@ class OrdenesProduccion(QWidget):
             fecha_fin = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self.controller.actualizar_fecha_fin_orden(orden_id, fecha_fin)
 
-            # Descontar insumos y sumar producto terminado
-            detalles = self.controller.get_detalle_orden(orden_id)
-            # Obtener cantidad producida y producto_id
+            # Solo sumar producto terminado, NO descontar insumos aquí
             row_tabla = None
             for row_idx in range(self.ordenes_tabla.rowCount()):
                 if self.ordenes_tabla.item(row_idx, 0).data(Qt.UserRole) == orden_id:
@@ -506,19 +500,13 @@ class OrdenesProduccion(QWidget):
                 cantidad_producida = float(self.ordenes_tabla.item(row_tabla, 2).text())
                 producto_nombre = self.ordenes_tabla.item(row_tabla, 1).text()
                 producto_id = self.controller.get_product_id_by_name(producto_nombre)
-                # Descontar insumos
-                for d in detalles:
-                    self.controller.model.cursor.execute(
-                        "UPDATE inventario SET cantidad = cantidad - ?, apartada = apartada - ? WHERE item_id = (SELECT id FROM item_general WHERE codigo = ?)",
-                        (d['cantidad_necesaria'], d['cantidad_necesaria'], d['codigo'])
-                    )
                 # Sumar producto terminado
                 self.controller.model.cursor.execute(
                     "UPDATE inventario SET cantidad = cantidad + ? WHERE item_id = ?",
                     (cantidad_producida, producto_id)
                 )
                 self.controller.model.conn.commit()
-                print(f"[INVENTARIO] Actualizado: descontados insumos y sumado producto terminado para orden {orden_id}")
+                print(f"[INVENTARIO] Actualizado: sumado producto terminado para orden {orden_id}")
             else:
                 print(f"[INVENTARIO] No se encontró la fila de la orden {orden_id} para actualizar inventario.")
 
@@ -656,6 +644,15 @@ class OrdenesProduccion(QWidget):
             QMessageBox.warning(self, "Eliminar", "Seleccione una orden para eliminar.")
             return
         orden_id = self.ordenes_tabla.item(row, 0).data(Qt.UserRole)
+        # Verificar estado
+        self.controller.model.cursor.execute(
+            "SELECT estado FROM ordenes_produccion WHERE id = ?", (orden_id,)
+        )
+        estado = self.controller.model.cursor.fetchone()
+        estado_actual = estado[0] if estado else ""
+        if estado_actual not in ("CANCELADA", "FINALIZADA"):
+            QMessageBox.warning(self, "Eliminar", "Solo puede eliminar órdenes CANCELADAS o FINALIZADAS.")
+            return
         # Confirmar
         resp = QMessageBox.question(self, "Eliminar orden", "¿Seguro que desea eliminar esta orden?", QMessageBox.Yes | QMessageBox.No)
         if resp != QMessageBox.Yes:
@@ -663,4 +660,8 @@ class OrdenesProduccion(QWidget):
         # Eliminar en la base de datos
         self.controller.eliminar_orden(orden_id)
         self.cargar_ordenes()
+        # Limpiar tablas y resumen
+        self.detalle_tabla.setRowCount(0)
+        self.resumen_label.setText("")
+        self.orden_id_seleccionada = None
         QMessageBox.information(self, "Eliminar", "Orden eliminada correctamente.")

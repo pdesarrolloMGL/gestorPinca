@@ -1,12 +1,13 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem,
-    QLineEdit, QLabel, QMessageBox, QDialog, QInputDialog, QHeaderView
+    QLineEdit, QLabel, QMessageBox, QDialog, QInputDialog, QHeaderView, QFileDialog
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
 from controllers.clientes_controller import ClientesController
 from controllers.pagos_cliente_controller import PagosClienteController
 from components.formulario_cliente import FormularioCliente
+import csv
 
 class Clientes(QWidget):
     def __init__(self):
@@ -28,6 +29,19 @@ class Clientes(QWidget):
         self.filtro_input.textChanged.connect(self.cargar_clientes)
         filtro_layout.addWidget(QLabel("Buscar:"))
         filtro_layout.addWidget(self.filtro_input)
+
+        self.filtro_empresa = QLineEdit()
+        self.filtro_empresa.setPlaceholderText("Empresa...")
+        self.filtro_empresa.textChanged.connect(self.cargar_clientes)
+        filtro_layout.addWidget(QLabel("Empresa:"))
+        filtro_layout.addWidget(self.filtro_empresa)
+
+        self.filtro_saldo = QLineEdit()
+        self.filtro_saldo.setPlaceholderText("Saldo mayor a...")
+        self.filtro_saldo.textChanged.connect(self.cargar_clientes)
+        filtro_layout.addWidget(QLabel("Saldo >"))
+        filtro_layout.addWidget(self.filtro_saldo)
+
         layout.addLayout(filtro_layout)
 
         # Tabla de clientes
@@ -73,9 +87,13 @@ class Clientes(QWidget):
         self.btn_eliminar.clicked.connect(self.eliminar_cliente)
         btn_layout.addWidget(self.btn_eliminar)
 
-        self.btn_registrar_pago = QPushButton("Registrar Pago")
-        self.btn_registrar_pago.clicked.connect(self.registrar_pago)
-        btn_layout.addWidget(self.btn_registrar_pago)
+        self.btn_exportar = QPushButton("Exportar a CSV")
+        self.btn_exportar.clicked.connect(self.exportar_csv)
+        btn_layout.addWidget(self.btn_exportar)
+
+        self.btn_historial = QPushButton("Historial de Pagos")
+        self.btn_historial.clicked.connect(self.mostrar_historial_pagos)
+        btn_layout.addWidget(self.btn_historial)
 
         layout.addLayout(btn_layout)
 
@@ -85,7 +103,9 @@ class Clientes(QWidget):
 
     def cargar_clientes(self):
         filtro = self.filtro_input.text()
-        clientes = self.controller.get_clientes(filtro)
+        empresa = self.filtro_empresa.text()
+        saldo = self.filtro_saldo.text()
+        clientes = self.controller.get_clientes_avanzado(filtro, empresa, saldo)
         self.tabla.setRowCount(0)
         for cliente in clientes:
             row = self.tabla.rowCount()
@@ -130,20 +150,6 @@ class Clientes(QWidget):
             self.cargar_clientes()
             QMessageBox.information(self, "Eliminar", "Cliente eliminado correctamente.")
 
-    def registrar_pago(self):
-        row = self.tabla.currentRow()
-        if row < 0:
-            QMessageBox.warning(self, "Pago", "Seleccione un cliente.")
-            return
-        cliente_id = int(self.tabla.verticalHeaderItem(row).text())
-        # Aquí puedes abrir un QDialog para pedir monto, método, etc.
-        monto, ok = QInputDialog.getDouble(self, "Registrar Pago", "Monto pagado:")
-        if not ok or monto <= 0:
-            return
-        self.pagos_controller.registrar_pago(cliente_id, None, monto, "Efectivo", "")
-        QMessageBox.information(self, "Pago", "Pago registrado.")
-        self.mostrar_resumen_cliente()
-
     def cargar_detalle_cliente(self, cliente_id):
         facturas = self.controller.get_facturas_cliente(cliente_id)
         self.tabla_detalle.setRowCount(0)
@@ -165,8 +171,34 @@ class Clientes(QWidget):
                 self.tabla_detalle.setItem(row, col, item)
             estado_item = QTableWidgetItem(estado)
             estado_item.setTextAlignment(Qt.AlignCenter)
-            if estado.lower() == "pagada":
+            if estado == "PAGADA":
                 estado_item.setBackground(QColor(144, 238, 144))  # Verde claro
-            elif estado.lower() == "pendiente":
+            elif estado == "PENDIENTE":
                 estado_item.setBackground(QColor(255, 255, 102))  # Amarillo claro
             self.tabla_detalle.setItem(row, 5, estado_item)
+
+    def exportar_csv(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Exportar clientes", "", "CSV Files (*.csv)")
+        if not path:
+            return
+        with open(path, "w", newline='', encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Cliente", "Empresa", "N° Documento", "Dirección", "Teléfono", "Email"])
+            for row in range(self.tabla.rowCount()):
+                writer.writerow([self.tabla.item(row, col).text() for col in range(self.tabla.columnCount())])
+        QMessageBox.information(self, "Exportar", "Clientes exportados correctamente.")
+
+    def mostrar_historial_pagos(self):
+        row = self.tabla.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Historial", "Seleccione un cliente.")
+            return
+        cliente_id = int(self.tabla.verticalHeaderItem(row).text())
+        pagos = self.pagos_controller.get_historial_pagos_cliente(cliente_id)
+        if not pagos:
+            QMessageBox.information(self, "Historial", "No hay pagos registrados para este cliente.")
+            return
+        texto = "Historial de Pagos:\n\n"
+        for pago in pagos:
+            texto += f"Fecha: {pago[1]} | Monto: ${pago[2]:,.2f} | Método: {pago[3]}\n"
+        QMessageBox.information(self, "Historial de Pagos", texto)

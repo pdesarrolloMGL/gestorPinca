@@ -7,7 +7,7 @@ class PagosClienteModel:
 
     def registrar_pago(self, cliente_id, factura_id, monto, metodo_pago, observaciones):
         self.cursor.execute(
-            "INSERT INTO pagos_cliente (cliente_id, factura_id, monto, metodo_pago, observaciones) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO pagos_cliente (cliente_id, factura_id, fecha_pago, monto, metodo_pago, observaciones) VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?)",
             (cliente_id, factura_id, monto, metodo_pago, observaciones)
         )
         self.conn.commit()
@@ -43,3 +43,13 @@ class PagosClienteModel:
             (factura_id,)
         )
         return float(self.cursor.fetchone()[0])
+
+    def get_historial_pagos_cliente(self, cliente_id):
+        self.cursor.execute("""
+            SELECT p.id, p.fecha_pago, p.monto, p.metodo_pago
+            FROM pagos_cliente p
+            JOIN facturas f ON p.factura_id = f.id
+            WHERE f.cliente_id = ?
+            ORDER BY p.fecha_pago DESC
+        """, (cliente_id,))
+        return self.cursor.fetchall()

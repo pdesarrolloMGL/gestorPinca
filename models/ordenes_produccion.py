@@ -90,7 +90,7 @@ class OrdenesProduccionModel:
         faltantes = []
         for mp_id, codigo, nombre, cantidad_base, unidad in materias:
             cantidad_necesaria = round(float(cantidad_base) * (cantidad_a_producir / volumen_base), 2)
-            self.cursor.execute("SELECT IFNULL(cantidad, 0) - IFNULL(apartada, 0) FROM inventario WHERE item_id = ?", (mp_id,))
+            self.cursor.execute("SELECT IFNULL(cantidad, 0) FROM inventario WHERE item_id = ?", (mp_id,))
             cantidad_inventario = round(self.cursor.fetchone()[0], 2)
             if cantidad_inventario < cantidad_necesaria:
                 faltantes.append({
@@ -168,32 +168,24 @@ class OrdenesProduccionModel:
         orden_id = self.crear_orden(producto_id, cantidad, observaciones)
         detalles = self.obtener_materias_primas_virtual(producto_id, cantidad)
 
-        suficientes = True
+        self.actualizar_estado_orden(orden_id, "CONFIRMADA")
         for d in detalles:
-            cantidad_en_inventario = self.get_cantidad_inventario(d["codigo"])
-            if cantidad_en_inventario < d["cantidad_necesaria"]:
-                suficientes = False
-                break
-
-        if suficientes:
-            self.actualizar_estado_orden(orden_id, "CONFIRMADA")
-            for d in detalles:
-                item_id = self.obtener_id_item_por_codigo(d["codigo"])
-                self.agregar_detalle_orden(orden_id, item_id, d["cantidad_necesaria"])
-            for d in detalles:
-                item_id = self.obtener_id_item_por_codigo(d["codigo"])
-                cantidad_a_reservar = d["cantidad_necesaria"]
-                self.cursor.execute(
-                    "UPDATE inventario SET apartada = apartada + ? WHERE item_id = ?",
-                    (round(cantidad_a_reservar, 2), item_id)
-                )
-            self.conn.commit()
-            return orden_id
-        else:
-            self.actualizar_estado_orden(orden_id, "PENDIENTE")
-            return None
+            item_id = self.obtener_id_item_por_codigo(d["codigo"])
+            self.agregar_detalle_orden(orden_id, item_id, d["cantidad_necesaria"])
+            # Descontar materia prima enseguida
+            self.cursor.execute(
+                "UPDATE inventario SET cantidad = cantidad - ? WHERE item_id = ?",
+                (round(d["cantidad_necesaria"], 2), item_id)
+            )
+        self.conn.commit()
+        return orden_id
 
     def devolver_materia_prima_por_orden(self, orden_id):
+        self.cursor.execute("SELECT estado FROM ordenes_produccion WHERE id = ?", (orden_id,))
+        row = self.cursor.fetchone()
+        if not row or row[0] not in ("CONFIRMADA", "EN PROCESO", "FINALIZADA"):
+            return  # Solo devolver si ya se descontó
+
         self.cursor.execute("""
             SELECT item_id, cantidad_utilizada
             FROM detalle_orden_produccion
@@ -202,7 +194,7 @@ class OrdenesProduccionModel:
         detalles = self.cursor.fetchall()
         for item_id, cantidad in detalles:
             self.cursor.execute(
-                "UPDATE inventario SET apartada = apartada - ? WHERE item_id = ?",
+                "UPDATE inventario SET cantidad = cantidad + ? WHERE item_id = ?",
                 (round(cantidad, 2), item_id)
             )
         self.conn.commit()

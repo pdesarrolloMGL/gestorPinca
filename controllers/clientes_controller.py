@@ -15,3 +15,6 @@ class ClientesController:
 
     def get_facturas_cliente(self, cliente_id):
         return self.model.get_facturas_cliente(cliente_id)
+    
+    def get_clientes_avanzado(self, filtro=None, empresa=None, saldo=None):
+        return self.model.obtener_clientes_avanzado(filtro, empresa, saldo)

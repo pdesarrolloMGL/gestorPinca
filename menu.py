@@ -3,9 +3,9 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QIcon
 from views.inventario import Inventario
 from views.formulaciones import Formulaciones
-from views.ordenes_produccion import OrdenesProduccion  # NUEVO: importa la vista
+from views.ordenes_produccion import OrdenesProduccion  
 from views.clientes import Clientes
-from views.facturas import Facturas  # Placeholder para Facturación
+from views.facturas import Facturas
 
 class Menu(QMainWindow):
     def __init__(self):
