@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QComboBox, QTableWidget, QTableWidgetItem,
-    QHBoxLayout, QStackedWidget, QHeaderView, QSizePolicy, QLineEdit, QPushButton, QListWidget, QListWidgetItem
+    QHBoxLayout, QStackedWidget, QHeaderView, QSizePolicy, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QMessageBox
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QIcon
@@ -28,7 +28,7 @@ class Formulaciones(QWidget):
         main_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
 
         # Título
-        titulo = QLabel("Consulta de Fórmula de Producto")
+        titulo = QLabel("Fórmulas de Producto - Consultas / Cálculos")
         titulo.setAlignment(Qt.AlignCenter)
         titulo.setObjectName("Titulo")
         main_layout.addWidget(titulo)
@@ -61,16 +61,8 @@ class Formulaciones(QWidget):
         self.volumen_input.setMaximumWidth(150)
         selector_layout.addWidget(self.volumen_input)
 
-        # Botón para recalcular con volumen personalizado
-        self.btn_recalcular = QPushButton("Recalcular")
-        self.btn_recalcular.setMinimumWidth(90)
-        self.btn_recalcular.setMaximumWidth(120)
-        self.btn_recalcular.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        self.btn_recalcular.clicked.connect(self.mostrar_formula_producto)
-        selector_layout.addWidget(self.btn_recalcular)
-
         # Botón para refrescar productos
-        self.btn_refrescar = QPushButton("  Refrescar")
+        self.btn_refrescar = QPushButton("  REFRESCAR")
         self.btn_refrescar.setMinimumWidth(90)
         self.btn_refrescar.setMaximumWidth(120)
         self.btn_refrescar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
@@ -258,7 +250,6 @@ class Formulaciones(QWidget):
         if volumen_original and volumen_personalizado:
             factor_volumen = volumen_personalizado / volumen_original
 
-
         self.table.setRowCount(0)
         self.table.clearContents()
         self.table.setColumnCount(7)
@@ -268,6 +259,8 @@ class Formulaciones(QWidget):
         self.table.verticalHeader().setVisible(False)
         self.table.setRowCount(len(materias))
         suma_total = 0.0
+        suma_cantidades = 0.0  # <-- suma de cantidades ajustadas
+
         for i, (codigo, nombre, costo_unitario, cantidad, unidad) in enumerate(materias):
             cantidad_ajustada = float(cantidad) * factor_volumen
 
@@ -325,10 +318,14 @@ class Formulaciones(QWidget):
 
             try:
                 suma_total += float(total)
+                suma_cantidades += float(cantidad_ajustada)  # <-- suma cantidades
             except Exception:
                 pass
 
-        self.total_label.setText(f"TOTAL COSTO MATERIA PRIMA: $ {suma_total:,.2f}")
+        # Muestra ambos totales en el label
+        self.total_label.setText(
+            f"TOTAL CANTIDAD: {suma_cantidades:,.2f}  |  TOTAL COSTO MATERIA PRIMA: $ {suma_total:,.2f}   "
+        )
 
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)  # N°
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)  # CÓDIGO
@@ -359,7 +356,18 @@ class Formulaciones(QWidget):
         fila1.setSpacing(20)
         fila2.setSpacing(20)
 
-        label_mp = QLabel(f"COSTO MP/Galon: <b>{f'$ {costo_mp_galon:,.2f}' if self.es_numero(costo_mp_galon) else 'N/A'}</b>")
+        nombre_producto = None
+        for pid, n in self.productos:
+            if pid == prod_id:
+                nombre_producto = n
+                break
+
+        if nombre_producto and "PASTA" in nombre_producto.upper():
+            texto_costo_mp = f"COSTO MP/Kg: <b>{f'$ {costo_mp_galon:,.2f}' if self.es_numero(costo_mp_galon) else 'N/A'}</b>"
+        else:
+            texto_costo_mp = f"COSTO MP/Galon: <b>{f'$ {costo_mp_galon:,.2f}' if self.es_numero(costo_mp_galon) else 'N/A'}</b>"
+
+        label_mp = QLabel(texto_costo_mp)
         label_mp.setObjectName("CostoMPLabel")
         fila1.addWidget(label_mp)
 

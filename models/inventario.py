@@ -109,3 +109,19 @@ class InventarioModel:
     def obtener_categorias(self):
         self.cursor.execute("SELECT id, nombre FROM categorias")
         return self.cursor.fetchall()
+
+    def apartar_materia_prima(self, detalles):
+        for d in detalles:
+            self.cursor.execute(
+                "UPDATE inventario SET cantidad = cantidad - ? WHERE item_id = (SELECT id FROM item_general WHERE codigo = ?)",
+                (d['cantidad_necesaria'], d['codigo'])
+            )
+        self.conn.commit()
+
+    def devolver_materia_prima(self, detalles):
+        for d in detalles:
+            self.cursor.execute(
+                "UPDATE inventario SET cantidad = cantidad + ? WHERE item_id = (SELECT id FROM item_general WHERE codigo = ?)",
+                (d['cantidad_necesaria'], d['codigo'])
+            )
+        self.conn.commit()

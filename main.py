@@ -1,4 +1,6 @@
 from PyQt5.QtWidgets import QApplication
+from models.ordenes_produccion import OrdenesProduccionModel
+
 from menu import Menu
 import sys
 

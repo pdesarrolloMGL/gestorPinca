@@ -42,19 +42,16 @@ class OrdenesProduccionModel:
         return self.cursor.fetchall()
 
     def obtener_materias_primas_orden(self, orden_id):
-        # Obtener producto y cantidad de la orden
         self.cursor.execute("SELECT item_id, cantidad_producida FROM ordenes_produccion WHERE id = ?", (orden_id,))
         row = self.cursor.fetchone()
         if not row:
             return []
         producto_id, cantidad_producida = row
 
-        # Obtener volumen base del producto
         self.cursor.execute("SELECT volumen FROM item_especifico WHERE item_general_id = ?", (producto_id,))
         row = self.cursor.fetchone()
         volumen_base = float(row[0]) if row and row[0] is not None else 1
 
-        # Obtener materias primas, cantidades necesarias y costo unitario
         self.cursor.execute("""
             SELECT mp.id, mp.codigo, mp.nombre, f.cantidad, f.unidad, IFNULL(cp.costo_unitario, 0)
             FROM formulaciones f
@@ -66,19 +63,18 @@ class OrdenesProduccionModel:
 
         resultado = []
         for mp_id, codigo, nombre, cantidad_base, unidad, costo_unitario in materias:
-            cantidad_necesaria = float(cantidad_base) * (cantidad_producida / volumen_base)
+            cantidad_necesaria = round(float(cantidad_base) * (cantidad_producida / volumen_base), 2)
             resultado.append({
                 "id": mp_id,
                 "codigo": codigo,
                 "nombre": nombre,
                 "cantidad_necesaria": cantidad_necesaria,
                 "unidad": unidad,
-                "costo_unitario": costo_unitario
+                "costo_unitario": round(costo_unitario, 2)
             })
         return resultado
 
     def puede_producir(self, producto_id, cantidad_a_producir):
-        # 1. Obtener la formulación del producto
         self.cursor.execute("""
             SELECT mp.id, mp.codigo, mp.nombre, f.cantidad, f.unidad
             FROM formulaciones f
@@ -87,17 +83,15 @@ class OrdenesProduccionModel:
         """, (producto_id,))
         materias = self.cursor.fetchall()
 
-        # 2. Obtener el volumen base del producto
         self.cursor.execute("SELECT volumen FROM item_especifico WHERE item_general_id = ?", (producto_id,))
         row = self.cursor.fetchone()
         volumen_base = float(row[0]) if row and row[0] is not None else 1
 
-        # 3. Verificar inventario para cada materia prima
         faltantes = []
         for mp_id, codigo, nombre, cantidad_base, unidad in materias:
-            cantidad_necesaria = float(cantidad_base) * (cantidad_a_producir / volumen_base)
-            self.cursor.execute("SELECT IFNULL(cantidad, 0) FROM inventario WHERE item_id = ?", (mp_id,))
-            cantidad_inventario = self.cursor.fetchone()[0]
+            cantidad_necesaria = round(float(cantidad_base) * (cantidad_a_producir / volumen_base), 2)
+            self.cursor.execute("SELECT IFNULL(cantidad, 0) - IFNULL(apartada, 0) FROM inventario WHERE item_id = ?", (mp_id,))
+            cantidad_inventario = round(self.cursor.fetchone()[0], 2)
             if cantidad_inventario < cantidad_necesaria:
                 faltantes.append({
                     "codigo": codigo,
@@ -105,36 +99,116 @@ class OrdenesProduccionModel:
                     "necesaria": cantidad_necesaria,
                     "en_stock": cantidad_inventario
                 })
-        return faltantes  # Lista vacía si se puede producir, si no, lista de faltantes
+        return faltantes
 
     def obtener_id_producto_por_nombre(self, nombre):
         self.cursor.execute("SELECT id FROM item_general WHERE nombre = ?", (nombre,))
         row = self.cursor.fetchone()
         return row[0] if row else None
-    
+
     def get_cantidad_inventario(self, codigo_mp):
         result = self.cursor.execute(
             "SELECT IFNULL(cantidad, 0) FROM inventario WHERE item_id = (SELECT id FROM item_general WHERE codigo = ?)",
             (codigo_mp,)
         ).fetchone()
-        return float(result[0]) if result else 0
-
-    def get_tipo_producto(self, producto_id):
-        self.cursor.execute("SELECT unidad FROM item_especifico WHERE item_general_id = ?", (producto_id,))
-        row = self.cursor.fetchone()
-        return row[0] if row else "galon"
+        return round(float(result[0]), 2) if result else 0
 
     def actualizar_estado_orden(self, orden_id, nuevo_estado):
-        cursor = self.cursor
-        cursor.execute("UPDATE ordenes_produccion SET estado = ? WHERE id = ?", (nuevo_estado, orden_id))
+        self.cursor.execute("UPDATE ordenes_produccion SET estado = ? WHERE id = ?", (nuevo_estado, orden_id))
         self.conn.commit()
 
     def actualizar_observaciones_orden(self, orden_id, nueva_desc):
-        cursor = self.cursor
-        cursor.execute("UPDATE ordenes_produccion SET observaciones = ? WHERE id = ?", (nueva_desc, orden_id))
+        self.cursor.execute("UPDATE ordenes_produccion SET observaciones = ? WHERE id = ?", (nueva_desc, orden_id))
         self.conn.commit()
 
     def actualizar_fecha_fin_orden(self, orden_id, nueva_fecha):
-        cursor = self.cursor
-        cursor.execute("UPDATE ordenes_produccion SET fecha_fin = ? WHERE id = ?", (nueva_fecha, orden_id))
+        self.cursor.execute("UPDATE ordenes_produccion SET fecha_fin = ? WHERE id = ?", (nueva_fecha, orden_id))
+        self.conn.commit()
+
+    def obtener_materias_primas_virtual(self, producto_id, cantidad):
+        self.cursor.execute("""
+            SELECT mp.codigo, mp.nombre, cp.costo_unitario, f.cantidad, f.unidad
+            FROM formulaciones f
+            JOIN item_general mp ON f.materia_prima_id = mp.id
+            LEFT JOIN costos_produccion cp ON mp.id = cp.item_id
+            WHERE f.producto_id = ?
+        """, (producto_id,))
+        materias = self.cursor.fetchall()
+        self.cursor.execute("SELECT volumen FROM item_especifico WHERE item_general_id = ?", (producto_id,))
+        row_vol = self.cursor.fetchone()
+        volumen_base = float(row_vol[0]) if row_vol and row_vol[0] is not None else 1
+
+        factor = float(cantidad) / volumen_base if volumen_base else 1
+
+        detalles = []
+        for codigo, nombre, costo_unitario, cantidad_base, unidad in materias:
+            cantidad_necesaria = round(float(cantidad_base) * factor, 2)
+            detalles.append({
+                "codigo": codigo,
+                "nombre": nombre,
+                "costo_unitario": round(costo_unitario, 2) if costo_unitario else 0,
+                "cantidad_necesaria": cantidad_necesaria,
+                "unidad": unidad
+            })
+        return detalles
+
+    def agregar_detalle_orden(self, orden_id, item_id, cantidad_utilizada):
+        self.cursor.execute(
+            "INSERT INTO detalle_orden_produccion (orden_id, item_id, cantidad_utilizada) VALUES (?, ?, ?)",
+            (orden_id, item_id, round(cantidad_utilizada, 2))
+        )
+        self.conn.commit()
+
+    def obtener_id_item_por_codigo(self, codigo):
+        self.cursor.execute("SELECT id FROM item_general WHERE codigo = ?", (codigo,))
+        row = self.cursor.fetchone()
+        return row[0] if row else None
+
+    def procesar_creacion_orden(self, producto_id, cantidad, observaciones):
+        orden_id = self.crear_orden(producto_id, cantidad, observaciones)
+        detalles = self.obtener_materias_primas_virtual(producto_id, cantidad)
+
+        suficientes = True
+        for d in detalles:
+            cantidad_en_inventario = self.get_cantidad_inventario(d["codigo"])
+            if cantidad_en_inventario < d["cantidad_necesaria"]:
+                suficientes = False
+                break
+
+        if suficientes:
+            self.actualizar_estado_orden(orden_id, "CONFIRMADA")
+            for d in detalles:
+                item_id = self.obtener_id_item_por_codigo(d["codigo"])
+                self.agregar_detalle_orden(orden_id, item_id, d["cantidad_necesaria"])
+            for d in detalles:
+                item_id = self.obtener_id_item_por_codigo(d["codigo"])
+                cantidad_a_reservar = d["cantidad_necesaria"]
+                self.cursor.execute(
+                    "UPDATE inventario SET apartada = apartada + ? WHERE item_id = ?",
+                    (round(cantidad_a_reservar, 2), item_id)
+                )
+            self.conn.commit()
+            return orden_id
+        else:
+            self.actualizar_estado_orden(orden_id, "PENDIENTE")
+            return None
+
+    def devolver_materia_prima_por_orden(self, orden_id):
+        self.cursor.execute("""
+            SELECT item_id, cantidad_utilizada
+            FROM detalle_orden_produccion
+            WHERE orden_id = ?
+        """, (orden_id,))
+        detalles = self.cursor.fetchall()
+        for item_id, cantidad in detalles:
+            self.cursor.execute(
+                "UPDATE inventario SET apartada = apartada - ? WHERE item_id = ?",
+                (round(cantidad, 2), item_id)
+            )
+        self.conn.commit()
+
+    def eliminar_orden(self, orden_id):
+        # Borra detalles primero por integridad referencial
+        self.cursor.execute("DELETE FROM detalle_orden_produccion WHERE orden_id = ?", (orden_id,))
+        self.cursor.execute("DELETE FROM ordenes_produccion WHERE id = ?", (orden_id,))
         self.conn.commit()

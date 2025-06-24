@@ -2,9 +2,13 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QComboBox, QTableWidget, QTableWidgetItem,
     QHBoxLayout, QPushButton, QLineEdit, QHeaderView, QMessageBox, QGroupBox, QFrame, QDateEdit
 )
-from PyQt5.QtCore import Qt, QDate
-from PyQt5.QtGui import QColor
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon
 from controllers.ordenes_produccion_controller import OrdenesProduccionController
+from datetime import datetime
+import os
+from pathlib import Path
+import pandas as pd
 
 class OrdenesProduccion(QWidget):
     def __init__(self):
@@ -80,7 +84,7 @@ class OrdenesProduccion(QWidget):
                 background: #ffffff;
                 border: 1.5px solid #dbdbdb;
                 border-radius: 8px;
-                padding: 18px 24px;
+                padding: 18px 24px; 
                 font-size: 16px;
             }
             QLabel#Titulo {
@@ -110,7 +114,7 @@ class OrdenesProduccion(QWidget):
         selector_layout.addWidget(self.producto_combo)
 
         self.cantidad_input = QLineEdit()
-        self.cantidad_input.setPlaceholderText("Cantidad a producir")
+        self.cantidad_input.setPlaceholderText("Introduzca volumen a producir")
         selector_layout.addWidget(self.cantidad_input)
 
         self.btn_nueva_orden = QPushButton("Crear Orden")
@@ -118,14 +122,15 @@ class OrdenesProduccion(QWidget):
         self.btn_nueva_orden.clicked.connect(self.crear_orden)
         selector_layout.addWidget(self.btn_nueva_orden)
 
-        self.btn_ver_costos = QPushButton("Ver Costos de Producción")
-        self.btn_ver_costos.setObjectName("btnVerCostos")
-        self.btn_ver_costos.clicked.connect(self.ver_costos_orden)
-        selector_layout.addWidget(self.btn_ver_costos)
+        self.btn_exportar_excel = QPushButton("Exportar Orden a Excel")
+        self.btn_exportar_excel.setObjectName("btnExportarExcel")
+        self.btn_exportar_excel.clicked.connect(self.exportar_orden_excel)
+        self.btn_exportar_excel.setIcon(QIcon("assets/download.png"))
+        selector_layout.addWidget(self.btn_exportar_excel)
 
         main_layout.addLayout(selector_layout)
 
-        # Tabla de órdenes (sin columna ID, con OBSERVACIONES, editable ESTADO)
+        # --- CREA LA TABLA ANTES DEL FILTRO ---
         self.ordenes_tabla = QTableWidget()
         self.ordenes_tabla.setColumnCount(5)
         self.ordenes_tabla.setHorizontalHeaderLabels([
@@ -137,11 +142,26 @@ class OrdenesProduccion(QWidget):
         self.ordenes_tabla.itemChanged.connect(self.editar_celda_orden)
         main_layout.addWidget(self.ordenes_tabla)
 
-        # Sección de materia prima y resumen de costos en horizontal
+        self.filtro_input = QLineEdit()
+        self.filtro_input.setPlaceholderText("Buscar por código o nombre...")
+        self.filtro_input.textChanged.connect(self.filtrar_ordenes)
+        main_layout.insertWidget(main_layout.indexOf(self.ordenes_tabla), self.filtro_input)
+
+        self.btn_exportar_todas = QPushButton("Exportar TODAS las Órdenes a Excel")
+        self.btn_exportar_todas.setObjectName("btnExportarExcel")
+        self.btn_exportar_todas.clicked.connect(self.exportar_todas_ordenes_excel)
+        self.btn_exportar_todas.setIcon(QIcon("assets/download.png"))
+        selector_layout.addWidget(self.btn_exportar_todas)
+        
+        self.btn_eliminar_orden = QPushButton("Eliminar Orden")
+        self.btn_eliminar_orden.setObjectName("btnEliminarOrden")
+        self.btn_eliminar_orden.setIcon(QIcon("assets/trash.png"))
+        self.btn_eliminar_orden.clicked.connect(self.eliminar_orden)
+        selector_layout.addWidget(self.btn_eliminar_orden)
+
         bottom_layout = QHBoxLayout()
 
-        # Grupo de detalle de materia prima utilizada
-        detalle_group = QGroupBox("Materia Prima Utilizada")
+        detalle_group = QGroupBox("MATERIA PRIMA UTILIZADA")
         detalle_layout = QVBoxLayout()
         self.detalle_tabla = QTableWidget()
         self.detalle_tabla.setColumnCount(2)
@@ -162,7 +182,7 @@ class OrdenesProduccion(QWidget):
         bottom_layout.addWidget(separator)
 
         # Resumen de costos
-        resumen_group = QGroupBox("Resumen de Costos")
+        resumen_group = QGroupBox("COSTOS DE PRODUCCIÓN")
         resumen_layout = QVBoxLayout()
         self.resumen_label = QLabel()
         self.resumen_label.setObjectName("ResumenCostos")
@@ -178,6 +198,131 @@ class OrdenesProduccion(QWidget):
 
         # Selección de fila para mostrar detalle
         self.ordenes_tabla.selectionModel().selectionChanged.connect(self.on_fila_seleccionada)
+
+    def filtrar_ordenes(self, texto):
+        texto = texto.lower()
+        for row in range(self.ordenes_tabla.rowCount()):
+            codigo = self.ordenes_tabla.item(row, 0).text().lower()
+            nombre = self.ordenes_tabla.item(row, 1).text().lower()
+            visible = texto in codigo or texto in nombre
+            self.ordenes_tabla.setRowHidden(row, not visible)
+
+    def exportar_orden_excel(self):
+        if not self.orden_id_seleccionada:
+            QMessageBox.warning(self, "Error", "Seleccione una orden primero")
+            return
+
+        # Buscar la orden seleccionada
+        orden = None
+        for o in self.controller.get_ordenes():
+            if o[0] == self.orden_id_seleccionada:
+                orden = o
+                break
+        if not orden:
+            QMessageBox.warning(self, "Error", "No se encontró la orden seleccionada")
+            return
+
+        codigo_orden = orden[1]
+        producto = orden[2]
+        cantidad = orden[3]
+        observaciones = orden[4] if len(orden) > 4 else ""
+        estado = orden[5] if len(orden) > 5 else ""
+
+        # Materia prima utilizada
+        detalles = self.controller.get_detalle_orden(self.orden_id_seleccionada)
+        df_materia_prima = pd.DataFrame(detalles)
+
+        # Costos de producción
+        producto_id = self.controller.get_product_id_by_name(producto)
+        self.controller.model.cursor.execute("""
+            SELECT costo_mod, envase, etiqueta, bandeja, plastico
+            FROM costos_produccion
+            WHERE item_id = ?
+            ORDER BY fecha_calculo DESC LIMIT 1
+        """, (producto_id,))
+        costos = self.controller.model.cursor.fetchone()
+        df_costos = pd.DataFrame([{
+            "MOD": float(costos[0]) if costos and costos[0] else 0,
+            "Envase": float(costos[1]) if costos and costos[1] else 0,
+            "Etiqueta": float(costos[2]) if costos and costos[2] else 0,
+            "Bandeja": float(costos[3]) if costos and costos[3] else 0,
+            "Plástico": float(costos[4]) if costos and costos[4] else 0,
+        }])
+
+        # Obtener la ruta de Descargas del usuario
+        downloads_path = str(Path.home() / "Downloads")
+        file_path = os.path.join(downloads_path, f"orden_{codigo_orden}.xlsx")
+
+        # Crear el archivo Excel con varias hojas
+        with pd.ExcelWriter(file_path) as writer:
+            # Datos generales
+            df_info = pd.DataFrame({
+                "Código": [codigo_orden],
+                "Producto": [producto],
+                "Cantidad": [cantidad],
+                "Observaciones": [observaciones],
+                "Estado": [estado]
+            })
+            df_info.to_excel(writer, sheet_name="Orden", index=False)
+            # Materia prima utilizada
+            df_materia_prima.to_excel(writer, sheet_name="Materia Prima", index=False)
+            # Costos de producción
+            df_costos.to_excel(writer, sheet_name="Costos Producción", index=False)
+
+        QMessageBox.information(self, "Exportación", f"Orden exportada en:\n{file_path}")
+
+    def exportar_todas_ordenes_excel(self):
+        ordenes = self.controller.get_ordenes()
+        if not ordenes:
+            QMessageBox.warning(self, "Sin datos", "No hay órdenes para exportar.")
+            return
+
+        # Lista para DataFrame general
+        lista_ordenes = []
+        # Lista para detalles de materia prima
+        lista_detalles = []
+
+        for orden in ordenes:
+            orden_id = orden[0]
+            codigo_orden = orden[1]
+            producto = orden[2]
+            cantidad = orden[3]
+            observaciones = orden[4] if len(orden) > 4 else ""
+            estado = orden[5] if len(orden) > 5 else ""
+
+            lista_ordenes.append({
+                "ID": orden_id,
+                "Código": codigo_orden,
+                "Producto": producto,
+                "Cantidad": cantidad,
+                "Observaciones": observaciones,
+                "Estado": estado
+            })
+
+            # Materia prima utilizada para esta orden
+            detalles = self.controller.get_detalle_orden(orden_id)
+            for d in detalles:
+                lista_detalles.append({
+                    "Código Orden": codigo_orden,
+                    "Producto": producto,
+                    "Materia Prima": d.get("nombre", ""),
+                    "Cantidad Utilizada": d.get("cantidad_necesaria", ""),
+                    "Unidad": d.get("unidad", ""),
+                    "Costo Unitario": d.get("costo_unitario", "")
+                })
+
+        df_ordenes = pd.DataFrame(lista_ordenes)
+        df_detalles = pd.DataFrame(lista_detalles)
+
+        # Guardar en Descargas
+        downloads_path = str(Path.home() / "Downloads")
+        file_path = os.path.join(downloads_path, "todas_las_ordenes.xlsx")
+
+        with pd.ExcelWriter(file_path) as writer:
+            df_ordenes.to_excel(writer, sheet_name="Órdenes", index=False)
+            df_detalles.to_excel(writer, sheet_name="Materia Prima", index=False)
+
+        QMessageBox.information(self, "Exportación", f"Todas las órdenes exportadas en:\n{file_path}")
 
     def cargar_ordenes(self):
         ordenes = self.controller.get_ordenes()
@@ -236,6 +381,73 @@ class OrdenesProduccion(QWidget):
 
     def cambiar_estado_orden(self, row, nuevo_estado):
         orden_id = self.ordenes_tabla.item(row, 0).data(Qt.UserRole)
+        # Obtener estado actual y fecha_fin
+        self.controller.model.cursor.execute(
+            "SELECT estado, fecha_fin FROM ordenes_produccion WHERE id = ?", (orden_id,)
+        )
+        actual = self.controller.model.cursor.fetchone()
+        estado_actual = actual[0] if actual else ""
+        fecha_fin_actual = actual[1] if actual else None
+
+        # No permitir cambios si ya está finalizada o cancelada
+        if estado_actual in ("FINALIZADA", "CANCELADA"):
+            QMessageBox.warning(self, "No permitido", "No se puede cambiar el estado de una orden FINALIZADA o CANCELADA.")
+            self.cargar_ordenes()
+            return
+
+        # Si la orden ya estaba finalizada y se va a cambiar a otro estado, pedir confirmación
+        if estado_actual == "FINALIZADA" and nuevo_estado != "FINALIZADA":
+            resp = QMessageBox.question(
+                self,
+                "Confirmar cambio de estado",
+                "Esta orden ya está FINALIZADA.\n¿Seguro que quieres cambiar el estado y quitar la fecha de finalización?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if resp != QMessageBox.Yes:
+                # Revertir el cambio visualmente
+                self.cargar_ordenes()
+                return
+            # Quitar la fecha de finalización
+            self.controller.actualizar_fecha_fin_orden(orden_id, None)
+
+        # Si el nuevo estado es FINALIZADA y no tenía fecha, poner la fecha actual
+        elif nuevo_estado == "FINALIZADA" and (not fecha_fin_actual):
+            fecha_fin = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.controller.actualizar_fecha_fin_orden(orden_id, fecha_fin)
+
+            # Descontar insumos y sumar producto terminado
+            detalles = self.controller.get_detalle_orden(orden_id)
+            # Obtener cantidad producida y producto_id
+            row_tabla = None
+            for row_idx in range(self.ordenes_tabla.rowCount()):
+                if self.ordenes_tabla.item(row_idx, 0).data(Qt.UserRole) == orden_id:
+                    row_tabla = row_idx
+                    break
+            if row_tabla is not None:
+                cantidad_producida = float(self.ordenes_tabla.item(row_tabla, 2).text())
+                producto_nombre = self.ordenes_tabla.item(row_tabla, 1).text()
+                producto_id = self.controller.get_product_id_by_name(producto_nombre)
+                # Descontar insumos
+                for d in detalles:
+                    self.controller.model.cursor.execute(
+                        "UPDATE inventario SET cantidad = cantidad - ?, apartada = apartada - ? WHERE item_id = (SELECT id FROM item_general WHERE codigo = ?)",
+                        (d['cantidad_necesaria'], d['cantidad_necesaria'], d['codigo'])
+                    )
+                # Sumar producto terminado
+                self.controller.model.cursor.execute(
+                    "UPDATE inventario SET cantidad = cantidad + ? WHERE item_id = ?",
+                    (cantidad_producida, producto_id)
+                )
+                self.controller.model.conn.commit()
+                print(f"[INVENTARIO] Actualizado: descontados insumos y sumado producto terminado para orden {orden_id}")
+            else:
+                print(f"[INVENTARIO] No se encontró la fila de la orden {orden_id} para actualizar inventario.")
+
+        if estado_actual != "CANCELADA" and nuevo_estado == "CANCELADA":
+            detalles = self.controller.get_detalle_orden(orden_id)
+            self.controller.devolver_materia_prima_por_orden(orden_id)
+            print(f"[INVENTARIO] Materia prima devuelta por cancelación de orden {orden_id}")
+
         self.controller.actualizar_estado_orden(orden_id, nuevo_estado)
 
     def editar_celda_orden(self, item):
@@ -245,6 +457,77 @@ class OrdenesProduccion(QWidget):
         if col == 3:  # Observaciones
             nueva_obs = item.text()
             self.controller.actualizar_observaciones_orden(orden_id, nueva_obs)
+    
+    def cambiar_estado_orden(self, row, nuevo_estado):
+        orden_id = self.ordenes_tabla.item(row, 0).data(Qt.UserRole)
+        # Obtener estado actual y fecha_fin
+        self.controller.model.cursor.execute(
+            "SELECT estado, fecha_fin FROM ordenes_produccion WHERE id = ?", (orden_id,)
+        )
+        actual = self.controller.model.cursor.fetchone()
+        estado_actual = actual[0] if actual else ""
+        fecha_fin_actual = actual[1] if actual else None
+
+        # No permitir cambios si ya está finalizada o cancelada
+        if estado_actual in ("FINALIZADA", "CANCELADA"):
+            QMessageBox.warning(self, "No permitido", "No se puede cambiar el estado de una orden FINALIZADA o CANCELADA.")
+            self.cargar_ordenes()
+            return
+
+        # Si la orden ya estaba finalizada y se va a cambiar a otro estado, pedir confirmación
+        if estado_actual == "FINALIZADA" and nuevo_estado != "FINALIZADA":
+            resp = QMessageBox.question(
+                self,
+                "Confirmar cambio de estado",
+                "Esta orden ya está FINALIZADA.\n¿Seguro que quieres cambiar el estado y quitar la fecha de finalización?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if resp != QMessageBox.Yes:
+                # Revertir el cambio visualmente
+                self.cargar_ordenes()
+                return
+            # Quitar la fecha de finalización
+            self.controller.actualizar_fecha_fin_orden(orden_id, None)
+
+        # Si el nuevo estado es FINALIZADA y no tenía fecha, poner la fecha actual
+        elif nuevo_estado == "FINALIZADA" and (not fecha_fin_actual):
+            fecha_fin = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.controller.actualizar_fecha_fin_orden(orden_id, fecha_fin)
+
+            # Descontar insumos y sumar producto terminado
+            detalles = self.controller.get_detalle_orden(orden_id)
+            # Obtener cantidad producida y producto_id
+            row_tabla = None
+            for row_idx in range(self.ordenes_tabla.rowCount()):
+                if self.ordenes_tabla.item(row_idx, 0).data(Qt.UserRole) == orden_id:
+                    row_tabla = row_idx
+                    break
+            if row_tabla is not None:
+                cantidad_producida = float(self.ordenes_tabla.item(row_tabla, 2).text())
+                producto_nombre = self.ordenes_tabla.item(row_tabla, 1).text()
+                producto_id = self.controller.get_product_id_by_name(producto_nombre)
+                # Descontar insumos
+                for d in detalles:
+                    self.controller.model.cursor.execute(
+                        "UPDATE inventario SET cantidad = cantidad - ?, apartada = apartada - ? WHERE item_id = (SELECT id FROM item_general WHERE codigo = ?)",
+                        (d['cantidad_necesaria'], d['cantidad_necesaria'], d['codigo'])
+                    )
+                # Sumar producto terminado
+                self.controller.model.cursor.execute(
+                    "UPDATE inventario SET cantidad = cantidad + ? WHERE item_id = ?",
+                    (cantidad_producida, producto_id)
+                )
+                self.controller.model.conn.commit()
+                print(f"[INVENTARIO] Actualizado: descontados insumos y sumado producto terminado para orden {orden_id}")
+            else:
+                print(f"[INVENTARIO] No se encontró la fila de la orden {orden_id} para actualizar inventario.")
+
+        if estado_actual != "CANCELADA" and nuevo_estado == "CANCELADA":
+            detalles = self.controller.get_detalle_orden(orden_id)
+            self.controller.devolver_materia_prima_por_orden(orden_id)
+            print(f"[INVENTARIO] Materia prima devuelta por cancelación de orden {orden_id}")
+
+        self.controller.actualizar_estado_orden(orden_id, nuevo_estado)
 
     def crear_orden(self):
         prod_id = self.producto_combo.currentData()
@@ -262,13 +545,14 @@ class OrdenesProduccion(QWidget):
         if faltantes:
             mensaje = "No hay suficiente Materia prima para producir:\n"
             for f in faltantes:
-                mensaje += f"- {f['nombre']} (necesaria: {f['necesaria']:.2f}, en stock: {f['en_stock']:.2f})\n"
+                mensaje += f"> {f['nombre']} (NECESARIA: {f['necesaria']:.2f}, EN STOCK: {f['en_stock']:.2f})\n"
             QMessageBox.warning(self, "Faltantes en inventario", mensaje)
             return
 
-        orden_id = self.controller.crear_orden(prod_id, cantidad)
+        # Solo esta línea, ya no apartar_materia_prima
+        orden_id = self.controller.procesar_creacion_orden(prod_id, cantidad, observaciones="")
         if orden_id:
-            QMessageBox.information(self, "Éxito", "Orden creada")
+            QMessageBox.information(self, "Éxito", "Orden creada y materia prima apartada")
             self.cargar_ordenes()
         else:
             QMessageBox.warning(self, "Error", "No se pudo crear la orden")
@@ -281,7 +565,6 @@ class OrdenesProduccion(QWidget):
 
         total_mp = 0.0
         total_materia_prima = 0.0
-        max_productos_posibles = float('inf')
 
         # Obtener cantidad producida y producto_id
         cantidad_producida = float(self.ordenes_tabla.item(row, 2).text())
@@ -300,26 +583,25 @@ class OrdenesProduccion(QWidget):
             r = self.detalle_tabla.rowCount()
             self.detalle_tabla.insertRow(r)
             self.detalle_tabla.setItem(r, 0, QTableWidgetItem(str(detalle["nombre"])))
+            # Solo dos decimales:
             self.detalle_tabla.setItem(r, 1, QTableWidgetItem(f"{detalle['cantidad_necesaria']:.2f} {detalle['unidad']}"))
 
             subtotal = float(detalle['costo_unitario']) * float(detalle['cantidad_necesaria'])
             total_mp += subtotal
             total_materia_prima += float(detalle['cantidad_necesaria'])
 
-            # Calcular máximo de productos posibles por materia prima
-            inventario_actual = self.controller.model.get_cantidad_inventario(detalle["codigo"])
-            if float(detalle['cantidad_necesaria']) > 0 and cantidad_producida > 0:
-                max_prod = inventario_actual / (float(detalle['cantidad_necesaria']) / cantidad_producida)
-                max_productos_posibles = min(max_productos_posibles, max_prod)
+        producto_nombre = self.ordenes_tabla.item(row, 1).text() if self.ordenes_tabla.item(row, 1) else ""
+
+        unidad_principal = detalles[0]['unidad'] if detalles else 'galon'
 
         # Costo MP/Galón o MP/Kg según unidad principal
         costo_mp = total_mp / volumen_base if volumen_base else 0
-        if unidad_principal.lower() == "kg":
-            label_costo_mp = f"<span style='background:#ffe066; color:#222; font-weight:bold;'>&nbsp;COSTO MP/Kg: ${costo_mp:,.2f}&nbsp;</span>"
+        if unidad_principal.lower() == "kg" or "PASTA" in producto_nombre.upper():
+            label_costo_mp = f"<td style='background:#ffe066; color:#222; font-weight:bold; border-radius:4px; padding:6px 16px;'>&nbsp;COSTO MP/Kg: ${costo_mp:,.2f}&nbsp;</td>"
         else:
-            label_costo_mp = f"<span style='background:#ffe066; color:#222; font-weight:bold;'>&nbsp;COSTO MP/Galón: ${costo_mp:,.2f}&nbsp;</span>"
+            label_costo_mp = f"<td style='background:#ffe066; color:#222; font-weight:bold; border-radius:4px; padding:6px 16px;'>&nbsp;COSTO MP/Galón: ${costo_mp:,.2f}&nbsp;</td >"
 
-        # Costos fijos
+        # Costos fijos  
         self.controller.model.cursor.execute("""
             SELECT costo_mod, envase, etiqueta, bandeja, plastico
             FROM costos_produccion
@@ -334,9 +616,9 @@ class OrdenesProduccion(QWidget):
         plastico = float(costos[4]) if costos and costos[4] else 0
 
         resumen = f"""
-        <table cellpadding='6' cellspacing='0' style='border-collapse:separate; border-spacing:0 4px;'>
+        <table cellpadding='6' cellspacing='0' style='border-collapse:separate; border-spacing:0 4px; border: 1px solid #dbdbdb;'>
             <tr>
-                <td style='background:#ffe066; color:#222; font-weight:bold; border-radius:4px; padding:6px 16px;'>COSTO MP/Galón: ${costo_mp:,.2f}</td>
+                {label_costo_mp}
             </tr>
             <tr>
                 <td style='background:#d0ebff; color:#222; font-weight:bold; border-radius:4px; padding:6px 16px;'>MOD: ${costo_mod:,.2f}</td>
@@ -364,75 +646,21 @@ class OrdenesProduccion(QWidget):
                     TOTAL MATERIA PRIMA USADA: <b>{total_materia_prima:,.2f} {unidad_principal}</b>
                 </td>
             </tr>
-            <tr>
-                <td style='font-size:15px; color:#222;'>
-                    MAX. PRODUCTOS POSIBLES CON STOCK ACTUAL: <b>{int(max_productos_posibles) if max_productos_posibles != float('inf') else 'N/A'}</b>
-                </td>
-            </tr>
         </table>
         """
         self.resumen_label.setText(resumen)
 
-    def ver_costos_orden(self):
-        if not self.orden_id_seleccionada:
-            QMessageBox.warning(self, "Error", "Seleccione una orden primero")
+    def eliminar_orden(self):
+        row = self.ordenes_tabla.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Eliminar", "Seleccione una orden para eliminar.")
             return
-
-        # Obtener datos de la orden
-        ordenes = self.controller.get_ordenes()
-        orden = None
-        for o in ordenes:
-            if o[0] == self.orden_id_seleccionada:
-                orden = o
-                break
-        if not orden:
-            QMessageBox.warning(self, "Error", "No se encontró la orden seleccionada")
+        orden_id = self.ordenes_tabla.item(row, 0).data(Qt.UserRole)
+        # Confirmar
+        resp = QMessageBox.question(self, "Eliminar orden", "¿Seguro que desea eliminar esta orden?", QMessageBox.Yes | QMessageBox.No)
+        if resp != QMessageBox.Yes:
             return
-
-        # Obtener el id del producto
-        producto_id = self.controller.get_product_id_by_name(orden[2]) if not isinstance(orden[2], int) else orden[2]
-        cantidad_producida = orden[3]
-
-        # Obtener materias primas y volumen base
-        detalles = self.controller.get_detalle_orden(self.orden_id_seleccionada)
-        self.controller.model.cursor.execute("SELECT volumen FROM item_especifico WHERE item_general_id = ?", (producto_id,))
-        row = self.controller.model.cursor.fetchone()
-        volumen_base = float(row[0]) if row and row[0] is not None else 1
-
-        # Calcular costos de materias primas
-        total_mp = 0.0
-        for detalle in detalles:
-            costo_unitario = detalle.get('costo_unitario', 0)
-            cantidad_necesaria = detalle.get('cantidad_necesaria', 0)
-            total_mp += float(costo_unitario) * float(cantidad_necesaria)
-
-        # Costos fijos
-        self.controller.model.cursor.execute("""
-            SELECT costo_mod, envase, etiqueta, bandeja, plastico
-            FROM costos_produccion
-            WHERE item_id = ?
-            ORDER BY fecha_calculo DESC LIMIT 1
-        """, (producto_id,))
-        costos = self.controller.model.cursor.fetchone()
-        costo_mod = float(costos[0]) if costos and costos[0] else 0
-        envase = float(costos[1]) if costos and costos[1] else 0
-        etiqueta = float(costos[2]) if costos and costos[2] else 0
-        bandeja = float(costos[3]) if costos and costos[3] else 0
-        plastico = float(costos[4]) if costos and costos[4] else 0
-
-        costo_mp = total_mp / volumen_base if volumen_base else 0
-        costo_total = costo_mp + costo_mod + envase + etiqueta + bandeja + plastico
-        precio_venta = costo_total * 1.4
-
-        mensaje = (
-            f"<b>COSTO MP: ${costo_mp:,.2f}</b><br>"
-            f"MOD: <b>${costo_mod:,.2f}</b><br>"
-            f"Envase: <b>${envase:,.2f}</b><br>"
-            f"Etiqueta: <b>${etiqueta:,.2f}</b><br>"
-            f"Bandeja: <b>${bandeja:,.2f}</b><br>"
-            f"Plástico: <b>${plastico:,.2f}</b><br>"
-            f"<hr>"
-            f"<b>COSTO TOTAL PRODUCCIÓN: ${costo_total:,.2f}</b><br>"
-            f"<b>PRECIO DE VENTA SUGERIDO: ${precio_venta:,.2f}</b>"
-        )
-        QMessageBox.information(self, "Costos de Producción", mensaje)
+        # Eliminar en la base de datos
+        self.controller.eliminar_orden(orden_id)
+        self.cargar_ordenes()
+        QMessageBox.information(self, "Eliminar", "Orden eliminada correctamente.")

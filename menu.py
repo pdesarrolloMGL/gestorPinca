@@ -4,6 +4,8 @@ from PyQt5.QtGui import QPixmap, QIcon
 from views.inventario import Inventario
 from views.formulaciones import Formulaciones
 from views.ordenes_produccion import OrdenesProduccion  # NUEVO: importa la vista
+from views.clientes import Clientes
+from views.facturas import Facturas  # Placeholder para Facturación
 
 class Menu(QMainWindow):
     def __init__(self):
@@ -48,17 +50,18 @@ class Menu(QMainWindow):
         inventario_widget = Inventario()
         formulaciones_widget = Formulaciones()
         ordenes_widget = OrdenesProduccion()  # NUEVO
-
+        clientes_widget = Clientes()  # Placeholder para Costos
+        facturas_widget = Facturas()  # Placeholder para Facturación
         # CONECTA LA SEÑAL AQUÍ
         inventario_widget.producto_agregado.connect(formulaciones_widget.recargar_productos)
 
         botones = {
             "Inventario": inventario_widget,
             "Formulaciones": formulaciones_widget,
-            "Órdenes de Producción": ordenes_widget,  # NUEVO
+            "Producción": ordenes_widget,  # NUEVO
             # "Clientes": Clientes(),
-            # "Costos": Costos(),
-            # "Facturación": Facturacion(),
+             "Clientes": clientes_widget,
+            "Facturación": facturas_widget,
             # "Producción": Produccion()
         }
 
