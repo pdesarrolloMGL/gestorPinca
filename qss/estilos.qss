@@ -28,6 +28,7 @@ QWidget {
     text-align: left;
     padding: 12px;
     border: none;
+    margin-top: 15px;
 }
 
 QPushButton#btnRestarMateriaPrima {
@@ -366,14 +367,20 @@ QComboBox::down-arrow:on { /* Cuando está presionado */
             padding: 6px 12px;
             min-width: 0px;
         }
-        QPushButton#btnExportarExcel {
+        QPushButton#btnVerde {
             background-color: #28a745;
             color: white;
             border-radius: 5px;
             padding: 5px 12px;
         }
-        QPushButton#btnEliminarOrden {
+        QPushButton#btnRojo {
             background-color: #dc3545;
+            color: white;
+            border-radius: 5px;
+            padding: 5px 12px;
+        }
+        QPushButton#btnRefrescar {
+            background-color: #007bff;
             color: white;
             border-radius: 5px;
             padding: 5px 12px;

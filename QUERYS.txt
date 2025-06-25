@@ -1,0 +1,151 @@
+ver info de mi tabla => PRAGMA table_info(pagos_cliente);
+actualizar columna => UPDATE inventario SET cantidad = 100
+
+Lo que NO se registra automáticamente aún:
+Compras/Entradas de inventario (necesitas el formulario de adición)
+Ajustes manuales (necesitas el botón "Registrar Ajuste Manual")
+
+
+- MEJORAR FACTURACIONES Y MOVIMIENTOS 
+
+- TABLA FALTANTE RESUMEN PRODUCCION
+
+- MEJORAR FUNCIONALIDADES
+
+
+BEGIN TRANSACTION;
+CREATE TABLE IF NOT EXISTS categorias (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre VARCHAR(50)
+);
+CREATE TABLE IF NOT EXISTS clientes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre_encargado TEXT NOT NULL,
+	nombre_empresa TEXT,
+    numero_documento TEXT,
+    direccion TEXT,
+    telefono TEXT,
+    email TEXT
+);
+CREATE TABLE IF NOT EXISTS costos_produccion (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_id INTEGER,
+  costo_unitario DECIMAL,
+  costo_mp_galon DECIMAL,
+  periodo VARCHAR(7), -- 'YYYY-MM'
+  metodo_calculo VARCHAR(20), -- 'promedio', 'último'
+  fecha_calculo DATETIME,
+  costo_mp_kg DECIMAL,
+  envase DECIMAL,
+  etiqueta DECIMAL,
+  bandeja DECIMAL,
+  plastico DECIMAL,
+  costo_total DECIMAL,
+  volumen DECIMAL,
+  precio_venta DECIMAL,
+  cantidad_total DECIMAL, costo_mod DECIMAL DEFAULT 0,
+  FOREIGN KEY(item_id) REFERENCES item_general(id)
+);
+CREATE TABLE IF NOT EXISTS detalle_facturas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    factura_id INTEGER NOT NULL,
+    item_id INTEGER NOT NULL,
+    cantidad INTEGER NOT NULL,
+    precio_unitario REAL NOT NULL,
+    subtotal REAL NOT NULL,
+    FOREIGN KEY (factura_id) REFERENCES facturas(id),
+    FOREIGN KEY (item_id) REFERENCES item_general(id)
+);
+CREATE TABLE IF NOT EXISTS detalle_orden_produccion (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    orden_id INTEGER,
+    item_id INTEGER,
+    cantidad_utilizada DECIMAL,
+    FOREIGN KEY (orden_id) REFERENCES ordenes_produccion(id),
+    FOREIGN KEY (item_id) REFERENCES item_general(id)
+);
+CREATE TABLE IF NOT EXISTS facturas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    numero TEXT NOT NULL,
+    cliente_id INTEGER NOT NULL,
+    fecha_emision DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    total REAL NOT NULL,
+    estado TEXT, -- 'pagada', 'pendiente', 'anulada'
+    subtotal REAL,
+    impuestos REAL,
+    retencion REAL,
+    FOREIGN KEY (cliente_id) REFERENCES clientes(id)
+);
+CREATE TABLE IF NOT EXISTS formulaciones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    producto_id INTEGER,         -- id del producto en item_general
+    materia_prima_id INTEGER,    -- id de la materia prima en item_general
+    cantidad REAL,               -- cantidad de materia prima para el volumen base del producto
+    unidad VARCHAR(10),          -- unidad de medida (opcional)
+    FOREIGN KEY (producto_id) REFERENCES item_general(id),
+    FOREIGN KEY (materia_prima_id) REFERENCES item_general(id)
+);
+CREATE TABLE IF NOT EXISTS inventario (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER,
+    cantidad DECIMAL,
+    fecha_update DATETIME, apartada DECIMAL DEFAULT 0,
+    FOREIGN KEY (item_id) REFERENCES item_general(id)
+);
+CREATE TABLE IF NOT EXISTS item_especifico (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_general_id INTEGER,
+  viscosidad VARCHAR(10),
+  p_g VARCHAR(50),
+  color VARCHAR(50),
+  brillo_60 VARCHAR(50),
+  secado VARCHAR(50),
+  cubrimiento VARCHAR(50),
+  molienda VARCHAR(50),
+  ph VARCHAR(50),
+  poder_tintoreo VARCHAR(50),
+  volumen REAL,
+  categoria_id INTEGER,
+  FOREIGN KEY(item_general_id) REFERENCES item_general(id),
+  FOREIGN KEY(categoria_id) REFERENCES categorias(id)
+);
+CREATE TABLE IF NOT EXISTS item_general (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre VARCHAR(100),
+  codigo VARCHAR(100),
+  tipo VARCHAR(20) -- 'materia_prima', 'producto', 'insumo'
+);
+CREATE TABLE IF NOT EXISTS movimientos_inventario (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER NOT NULL,
+    tipo_movimiento VARCHAR(20) NOT NULL, -- 'entrada', 'salida', 'ajuste', 'produccion'
+    cantidad DECIMAL(10,2) NOT NULL,
+    fecha_movimiento DATETIME DEFAULT CURRENT_TIMESTAMP,
+    descripcion TEXT,
+    referencia_id INTEGER, -- ID de factura, produccion, etc.
+    referencia_tipo VARCHAR(20), -- 'factura', 'produccion', 'ajuste_manual', 'compra'
+    FOREIGN KEY (item_id) REFERENCES item_general(id)
+);
+CREATE TABLE IF NOT EXISTS ordenes_produccion (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    codigo VARCHAR(50),
+    item_id INTEGER,
+    cantidad_producida DECIMAL,
+    fecha_inicio DATETIME,
+    fecha_fin DATETIME,
+    estado VARCHAR(20),
+    observaciones TEXT,
+    FOREIGN KEY (item_id) REFERENCES item_general(id)
+);
+CREATE TABLE IF NOT EXISTS pagos_cliente (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cliente_id INTEGER NOT NULL,
+    factura_id INTEGER, -- puede ser NULL si es un abono general
+    fecha_pago DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    monto REAL NOT NULL,
+    metodo_pago TEXT,
+    observaciones TEXT,
+    FOREIGN KEY (cliente_id) REFERENCES clientes(id),
+    FOREIGN KEY (factura_id) REFERENCES facturas(id)
+);
+COMMIT;

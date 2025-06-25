@@ -24,3 +24,9 @@ class PagosClienteController:
 
     def get_historial_pagos_cliente(self, cliente_id):
         return self.model.get_historial_pagos_cliente(cliente_id)
+
+    def get_todos_los_pagos(self):
+        return self.model.get_todos_los_pagos()
+
+    def get_pagos_por_factura(self, factura_id):
+        return self.model.get_pagos_por_factura(factura_id)

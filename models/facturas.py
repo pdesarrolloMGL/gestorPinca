@@ -7,8 +7,8 @@ class FacturasModel:
 
     def obtener_facturas(self, filtro=None):
         query = """
-            SELECT f.id, f.numero, f.cliente_id, c.nombre_encargado || ' / ' || IFNULL(c.nombre_empresa, '') AS cliente, 
-                f.fecha_emision, f.total, f.estado, f.subtotal, f.impuestos
+            SELECT f.id, f.numero, c.nombre_encargado || ' / ' || IFNULL(c.nombre_empresa, '') AS cliente, 
+                   f.fecha_emision, f.total, f.estado, f.subtotal, f.impuestos, f.cliente_id
             FROM facturas f
             JOIN clientes c ON f.cliente_id = c.id
         """
@@ -31,4 +31,3 @@ class FacturasModel:
     def eliminar_factura(self, factura_id):
         self.cursor.execute("DELETE FROM facturas WHERE id = ?", (factura_id,))
         self.conn.commit()
-    

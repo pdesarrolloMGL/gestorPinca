@@ -125,3 +125,21 @@ class InventarioModel:
                 (d['cantidad_necesaria'], d['codigo'])
             )
         self.conn.commit()
+    
+    def obtener_productos_con_id(self, filtro=None):
+        """Obtener productos con sus IDs reales para usar en facturas"""
+        query = """
+            SELECT ig.id, ig.codigo, ig.nombre, IFNULL(cp.costo_unitario, 0), IFNULL(inv.cantidad, 0)
+            FROM item_general ig
+            LEFT JOIN inventario inv ON ig.id = inv.item_id
+            LEFT JOIN costos_produccion cp ON ig.id = cp.item_id
+            WHERE UPPER(ig.tipo) = 'PRODUCTO'
+        """
+        params = ()
+        if filtro:
+            query += " AND (lower(ig.codigo) LIKE ? OR lower(ig.nombre) LIKE ? OR lower(ig.tipo) LIKE ?)"
+            params = (f"%{filtro}%", f"%{filtro}%", f"%{filtro}%")
+        
+        query += " ORDER BY ig.nombre"
+        self.cursor.execute(query, params)
+        return self.cursor.fetchall()

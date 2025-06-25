@@ -441,32 +441,61 @@ class Inventario(QWidget):
     def mostrar_productos(self, filtro=None):
         self.tabla_actual = "productos"
         self.titulo_label.setText("Inventario de Productos")
-        self.botonera.btn_agregar.setVisible(False)
+        self.botonera.btn_agregar.setText("Agregar producto")
+        self.botonera.btn_agregar.setVisible(False)  # No permitir agregar productos desde aquí
         self.btn_sumar_materia.setVisible(False)
         self.btn_restar_materia.setVisible(False)
         self.btn_agregar_producto.setVisible(True)
-        resultados = self.controller.get_productos(filtro)
-        columnas = ["N°", "CODIGO", "NOMBRE", "COSTO UNITARIO", "CANTIDAD", "ELIMINAR"]
+
+        # Usar obtener_productos() en lugar de get_productos()
+        productos = self.controller.obtener_productos(filtro)
+        
+        if not productos:
+            # Si no hay productos, configurar tabla vacía
+            self.table.setRowCount(0)
+            self.table.setColumnCount(5)  # Agregamos columna para eliminar
+            self.table.setHorizontalHeaderLabels(["N°", "CÓDIGO", "NOMBRE", "COSTO", "CANTIDAD"])
+            return
+        
+        # Configurar tabla con productos
+        columnas = ["N°", "CÓDIGO", "NOMBRE", "COSTO", "CANTIDAD", "ELIMINAR"]
         limpiar_celdas_widget(self.table)
-        self.table.setRowCount(len(resultados))
+        self.table.setRowCount(len(productos))
         self.table.setColumnCount(len(columnas))
         self.table.setHorizontalHeaderLabels(columnas)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        for i, fila in enumerate(resultados):
+        
+        for i, producto in enumerate(productos):
+            # Columna N°
             item_n = QTableWidgetItem(str(i + 1))
             item_n.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(i, 0, item_n)
-            for j, valor in enumerate(fila):
-                if columnas[j + 1] == "CANTIDAD":
-                    valor = 0 if valor is None else valor
-                    item = QTableWidgetItem(f"{float(valor):.2f}")
+            
+            # Datos del producto
+            for j, valor in enumerate(producto):
+                columna_actual = columnas[j + 1]  # +1 porque agregamos columna N°
+                
+                if columna_actual == "CANTIDAD":
+                    try:
+                        cantidad_float = float(valor) if valor is not None else 0
+                        item = QTableWidgetItem(f"{cantidad_float:,.2f}")
+                    except (ValueError, TypeError):
+                        item = QTableWidgetItem("0.00")
+                elif columna_actual == "COSTO":
+                    try:
+                        costo_float = float(valor) if valor is not None else 0
+                        item = QTableWidgetItem(formatear_moneda(costo_float))
+                    except (ValueError, TypeError):
+                        item = QTableWidgetItem(formatear_moneda(0))
                 else:
                     item = QTableWidgetItem(str(valor))
-                if columnas[j + 1] != "NOMBRE":
+                
+                if columna_actual != "NOMBRE":
                     item.setTextAlignment(Qt.AlignCenter)
-                if columnas[j + 1] == "COSTO UNITARIO":
-                    item.setText(formatear_moneda(valor))
+                
                 self.table.setItem(i, j + 1, item)
+            
+            # Botón eliminar
             btn = QPushButton()
             btn.setIcon(QIcon("assets/trash.png"))
             btn.setToolTip("Eliminar fila")

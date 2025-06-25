@@ -64,7 +64,8 @@ class Formulaciones(QWidget):
         # Botón para refrescar productos
         self.btn_refrescar = QPushButton("  REFRESCAR")
         self.btn_refrescar.setMinimumWidth(90)
-        self.btn_refrescar.setMaximumWidth(120)
+        self.btn_refrescar.setMaximumWidth(220)
+        self.btn_refrescar.setObjectName("btnRefrescar")
         self.btn_refrescar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.btn_refrescar.setIcon(QIcon("assets/refresh.png"))
         self.btn_refrescar.clicked.connect(self.recargar_productos)

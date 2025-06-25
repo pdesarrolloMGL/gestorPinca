@@ -169,14 +169,31 @@ class OrdenesProduccionModel:
         detalles = self.obtener_materias_primas_virtual(producto_id, cantidad)
 
         self.actualizar_estado_orden(orden_id, "CONFIRMADA")
+        
+        # Registrar movimientos de inventario
+        from controllers.movimientos_inventario_controller import MovimientosInventarioController
+        movimientos_controller = MovimientosInventarioController()
+        
         for d in detalles:
             item_id = self.obtener_id_item_por_codigo(d["codigo"])
             self.agregar_detalle_orden(orden_id, item_id, d["cantidad_necesaria"])
-            # Descontar materia prima enseguida
+            
+            # Descontar materia prima y registrar movimiento
             self.cursor.execute(
                 "UPDATE inventario SET cantidad = cantidad - ? WHERE item_id = ?",
                 (round(d["cantidad_necesaria"], 2), item_id)
             )
+            
+            # Registrar movimiento de salida por producción
+            movimientos_controller.registrar_movimiento(
+                item_id, 
+                'salida', 
+                d["cantidad_necesaria"], 
+                f"Consumo en producción - Orden {orden_id}",
+                orden_id, 
+                'produccion'
+            )
+        
         self.conn.commit()
         return orden_id
 

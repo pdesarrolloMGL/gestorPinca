@@ -53,3 +53,26 @@ class PagosClienteModel:
             ORDER BY p.fecha_pago DESC
         """, (cliente_id,))
         return self.cursor.fetchall()
+
+    def get_todos_los_pagos(self):
+        """Obtiene todos los pagos con información del cliente"""
+        self.cursor.execute("""
+            SELECT p.id, p.cliente_id, p.factura_id, p.monto, p.metodo_pago, 
+                   p.fecha_pago, p.observaciones, c.nombre_empresa || ' - ' || c.nombre_encargado as cliente_nombre
+            FROM pagos_cliente p
+            JOIN clientes c ON p.cliente_id = c.id
+            ORDER BY p.fecha_pago DESC
+        """)
+        return self.cursor.fetchall()
+
+    def get_pagos_por_factura(self, factura_id):
+        """Obtiene todos los pagos de una factura específica con información del cliente"""
+        self.cursor.execute("""
+            SELECT p.id, p.cliente_id, p.factura_id, p.monto, p.metodo_pago, 
+                   p.fecha_pago, p.observaciones, c.nombre_empresa || ' - ' || c.nombre_encargado as cliente_nombre
+            FROM pagos_cliente p
+            JOIN clientes c ON p.cliente_id = c.id
+            WHERE p.factura_id = ?
+            ORDER BY p.fecha_pago DESC
+        """, (factura_id,))
+        return self.cursor.fetchall()

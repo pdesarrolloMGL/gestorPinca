@@ -5,6 +5,25 @@ class InventarioController:
         self.model = InventarioModel()
 
     def get_productos(self, filtro=None):
+        # Para el formulario de facturas - necesita IDs reales
+        productos_data = self.model.obtener_productos_con_id(filtro)
+        
+        # Formato: (id, nombre, descripcion, cantidad, precio, categoria_id)
+        productos_formateados = []
+        for id_real, codigo, nombre, precio, cantidad in productos_data:
+            productos_formateados.append((
+                id_real,        # ID real de item_general
+                nombre,         # nombre
+                codigo,         # descripcion (usando código)
+                cantidad,       # cantidad
+                precio or 0,    # precio (0 si es None)
+                None           # categoria_id
+            ))
+        
+        return productos_formateados
+
+    def obtener_productos(self, filtro=None):
+        # Método original para la vista de inventario (sin ID)
         return self.model.obtener_productos(filtro)
 
     def get_materias_primas(self, filtro=None):
@@ -33,3 +52,10 @@ class InventarioController:
 
     def agregar_formulacion(self, producto_id, materia_prima_id, cantidad, unidad=None):
         return self.model.agregar_formulacion(producto_id, materia_prima_id, cantidad, unidad)
+
+    # Métodos adicionales para compatibilidad
+    def apartar_materia_prima(self, detalles):
+        return self.model.apartar_materia_prima(detalles)
+
+    def devolver_materia_prima(self, detalles):
+        return self.model.devolver_materia_prima(detalles)

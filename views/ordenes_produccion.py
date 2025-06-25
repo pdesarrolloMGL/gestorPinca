@@ -176,19 +176,19 @@ class OrdenesProduccion(QWidget):
         selector_layout.addWidget(self.btn_nueva_orden)
 
         self.btn_exportar_excel = QPushButton("Exportar Orden a Excel")
-        self.btn_exportar_excel.setObjectName("btnExportarExcel")
+        self.btn_exportar_excel.setObjectName("btnVerde")
         self.btn_exportar_excel.clicked.connect(self.exportar_orden_excel)
         self.btn_exportar_excel.setIcon(QIcon("assets/download.png"))
         selector_layout.addWidget(self.btn_exportar_excel)
 
         self.btn_exportar_todas = QPushButton("Exportar todo")
-        self.btn_exportar_todas.setObjectName("btnExportarExcel")
+        self.btn_exportar_todas.setObjectName("btnVerde")
         self.btn_exportar_todas.clicked.connect(self.exportar_todas_ordenes_excel)
         self.btn_exportar_todas.setIcon(QIcon("assets/download.png"))
         selector_layout.addWidget(self.btn_exportar_todas)
         
         self.btn_eliminar_orden = QPushButton("Eliminar Orden")
-        self.btn_eliminar_orden.setObjectName("btnEliminarOrden")
+        self.btn_eliminar_orden.setObjectName("btnRojo")
         self.btn_eliminar_orden.setIcon(QIcon("assets/trash.png"))
         self.btn_eliminar_orden.clicked.connect(self.eliminar_orden)
         selector_layout.addWidget(self.btn_eliminar_orden)
