@@ -4,13 +4,14 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem, QSpinBox, QLabel, QGroupBox, QCheckBox, QSizePolicy, QHeaderView
 )
 from PyQt5.QtCore import QDate, Qt, QLocale
+from PyQt5.QtGui import QIcon
 from controllers.inventario_controller import InventarioController
 
 class FormularioFactura(QDialog):
     def __init__(self, clientes, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Crear Factura")
-        self.setMinimumSize(700, 600)
+        self.setMinimumSize(900, 700)  # Más grande
         
         # Agregar estilo para fondo blanco
         self.setStyleSheet("""
@@ -64,43 +65,54 @@ class FormularioFactura(QDialog):
         """)
         
         self.inventario_controller = InventarioController()
-        
         layout = QVBoxLayout(self)
 
-        # Datos básicos de la factura
+        # --- NUEVO: Layout horizontal para datos principales ---
         datos_group = QGroupBox("Datos de la Factura")
-        form_layout = QFormLayout()
+        datos_layout = QHBoxLayout()
+        form_layout_izq = QFormLayout()
+        form_layout_der = QFormLayout()
 
+        # Columna izquierda
         self.input_numero = QLineEdit()
-        
         self.combo_cliente = QComboBox()
-        # No agregar "Sin cliente" - cliente requerido
         for cliente in clientes:
             nombre = f"{cliente[1]} / {cliente[2]}" if cliente[2] else cliente[1]
             self.combo_cliente.addItem(nombre, cliente[0])
-
         self.input_fecha = QDateEdit(QDate.currentDate())
         self.input_fecha.setCalendarPopup(True)
-        
-        # SELECT para estado
+        form_layout_izq.addRow("N° Factura:", self.input_numero)
+        form_layout_izq.addRow("Cliente:", self.combo_cliente)
+        form_layout_izq.addRow("Fecha:", self.input_fecha)
+
+        # Columna derecha
         self.combo_estado = QComboBox()
         self.combo_estado.addItems(["PENDIENTE", "PAGADA"])
-        
-        # CHECKBOX para IVA
         self.check_iva = QCheckBox("Incluir IVA (19%)")
-        self.check_iva.setChecked(True)  # Por defecto marcado
+        self.check_iva.setChecked(True)
         self.check_iva.stateChanged.connect(self.calcular_totales)
+        form_layout_der.addRow("Estado:", self.combo_estado)
+        form_layout_der.addRow("", self.check_iva)
 
-        form_layout.addRow("N° Factura:", self.input_numero)
-        form_layout.addRow("Cliente:", self.combo_cliente)
-        form_layout.addRow("Fecha:", self.input_fecha)
-        form_layout.addRow("Estado:", self.combo_estado)
-        form_layout.addRow("", self.check_iva)  # Checkbox sin label
-        
-        datos_group.setLayout(form_layout)
+        # Campos de pago inicial
+        self.pago_monto_input = QLineEdit()
+        self.pago_metodo_input = QComboBox()
+        self.pago_metodo_input.addItems(["Efectivo", "Transferencia", "Tarjeta", "Otro"])
+        self.pago_obs_input = QLineEdit()
+        form_layout_der.addRow("Pago inicial:", self.pago_monto_input)
+        form_layout_der.addRow("Método de pago:", self.pago_metodo_input)
+        form_layout_der.addRow("Observaciones pago:", self.pago_obs_input)
+
+        datos_layout.addLayout(form_layout_izq)
+        datos_layout.addSpacing(40)  # Espacio entre columnas
+        datos_layout.addLayout(form_layout_der)
+        datos_group.setLayout(datos_layout)
         layout.addWidget(datos_group)
 
-        # Sección de productos
+        # --- Espacio entre grupos ---
+        layout.addSpacing(20)
+
+        # Sección de productos (igual que antes)
         productos_group = QGroupBox("Productos")
         productos_layout = QVBoxLayout()
 
@@ -272,7 +284,9 @@ class FormularioFactura(QDialog):
         productos_group.setLayout(productos_layout)
         layout.addWidget(productos_group)
 
-        # Totales
+        layout.addSpacing(20)
+
+        # Totales (igual que antes)
         totales_group = QGroupBox("Totales")
         totales_layout = QFormLayout()
         
@@ -292,13 +306,16 @@ class FormularioFactura(QDialog):
         totales_group.setLayout(totales_layout)
         layout.addWidget(totales_group)
 
+        layout.addSpacing(20)
+
         # Botones
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
         layout.addWidget(self.buttons)
 
-        self.productos_factura = []  # Lista de productos agregados
+        self.productos_factura = []
+
 
     def cargar_productos(self):
         try:
@@ -347,7 +364,9 @@ class FormularioFactura(QDialog):
             self.tabla_productos.setItem(row, 2, QTableWidgetItem(f"${producto['precio']:,.2f}"))
             self.tabla_productos.setItem(row, 3, QTableWidgetItem(f"${producto['subtotal']:,.2f}"))
             
-            btn_eliminar = QPushButton("Eliminar")
+            btn_eliminar = QPushButton("")
+            btn_eliminar.setObjectName("btnRojo")
+            btn_eliminar.setIcon(QIcon("assets/trash.png"))
             btn_eliminar.clicked.connect(lambda checked, r=row: self.eliminar_producto(r))
             self.tabla_productos.setCellWidget(row, 4, btn_eliminar)
 
@@ -381,7 +400,7 @@ class FormularioFactura(QDialog):
             impuestos = 0.0
             
         total = subtotal + impuestos
-        
+
         return (
             self.input_numero.text(),
             self.combo_cliente.currentData(),
@@ -391,5 +410,8 @@ class FormularioFactura(QDialog):
             subtotal,
             impuestos,
             0.0,  # Retención
-            self.productos_factura  # Lista de productos
+            self.pago_monto_input.text(),      # Monto de pago inicial
+            self.pago_metodo_input.currentText(),  # Método de pago inicial
+            self.pago_obs_input.text(),        # Observaciones de pago inicial
+            self.productos_factura             # Lista de productos
         )

@@ -229,28 +229,22 @@ class Facturas(QWidget):
         dialog = FormularioFactura(clientes_simple, self)
         if dialog.exec_() == QDialog.Accepted:
             datos = dialog.get_data()
-            
-            # Validar que se haya seleccionado un cliente
-            if datos[1] is None:  # cliente_id
-                QMessageBox.warning(self, "Error", "Debe seleccionar un cliente válido.")
-                return
-                
-            productos = datos[-1]  # Lista de productos (último elemento)
-            datos_factura = datos[:-1]  # Datos de la factura sin productos (primeros 8)
-            
-            # Validar que haya productos
+            productos = datos[-1]   
+            pago_obs = datos[-2]
+            pago_metodo = datos[-3]
+            pago_monto = datos[-4]
+            datos_factura = datos[:8]  # Asegúrate que estos son: numero, cliente_id, fecha_emision, total, estado, subtotal, impuestos, retencion
+            cliente_id = datos[1]
+
             if not productos:
                 QMessageBox.warning(self, "Error", "Debe agregar al menos un producto.")
                 return
-            
+
             try:
-                # Crear la factura
                 factura_id = self.controller.agregar_factura(*datos_factura)
-                
                 # Agregar productos y descontar inventario
                 from controllers.detalle_factura_controller import DetalleFacturaController
                 detalle_controller = DetalleFacturaController()
-                
                 for producto in productos:
                     detalle_controller.agregar_detalle(
                         factura_id,
@@ -258,10 +252,14 @@ class Facturas(QWidget):
                         producto['cantidad'],
                         producto['precio']
                     )
-                
+                # Registrar pago si se ingresó monto
+                if pago_monto and float(pago_monto) > 0:
+                    self.pagos_controller.registrar_pago(
+                        cliente_id, factura_id, float(pago_monto), pago_metodo, pago_obs
+                    )
                 self.cargar_facturas()
-                QMessageBox.information(self, "Éxito", "Factura creada y inventario actualizado.")
-                
+                self.cargar_todos_los_pagos()
+                QMessageBox.information(self, "Éxito", "Factura creada y pago registrado.")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error al crear factura: {str(e)}")
 

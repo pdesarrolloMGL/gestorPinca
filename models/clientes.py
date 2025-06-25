@@ -34,17 +34,28 @@ class ClientesModel:
         return self.cursor.fetchall()
 
     def obtener_clientes_avanzado(self, filtro=None, empresa=None, saldo=None):
-        query = "SELECT id, nombre_encargado, nombre_empresa, numero_documento, direccion, telefono, email FROM clientes WHERE 1=1"
+        query = """
+            SELECT c.id, c.nombre_encargado, c.nombre_empresa, c.numero_documento, c.direccion, c.telefono, c.email
+            FROM clientes c
+            WHERE 1=1
+        """
         params = []
         if filtro:
-            query += " AND (nombre_encargado LIKE ? OR nombre_empresa LIKE ? OR numero_documento LIKE ?)"
+            query += " AND (c.nombre_encargado LIKE ? OR c.nombre_empresa LIKE ? OR c.numero_documento LIKE ?)"
             params += [f"%{filtro}%", f"%{filtro}%", f"%{filtro}%"]
         if empresa:
-            query += " AND nombre_empresa LIKE ?"
+            query += " AND c.nombre_empresa LIKE ?"
             params.append(f"%{empresa}%")
         if saldo:
-            query += " AND id IN (SELECT cliente_id FROM facturas f LEFT JOIN pagos_cliente p ON f.id = p.factura_id GROUP BY cliente_id HAVING SUM(f.total) - IFNULL(SUM(p.monto),0) > ?)"
+            query += """
+                AND c.id IN (
+                    SELECT f.cliente_id
+                    FROM facturas f
+                    LEFT JOIN pagos_cliente p ON f.id = p.factura_id
+                    GROUP BY f.cliente_id
+                    HAVING SUM(f.total) - IFNULL(SUM(p.monto),0) > ?
+                )
+            """
             params.append(float(saldo))
         self.cursor.execute(query, params)
         return self.cursor.fetchall()
-    

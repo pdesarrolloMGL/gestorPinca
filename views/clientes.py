@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem,
-    QLineEdit, QLabel, QMessageBox, QDialog, QHeaderView, QFileDialog
+    QLineEdit, QLabel, QMessageBox, QDialog, QHeaderView, QFileDialog, QGroupBox
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QIcon
@@ -14,7 +14,6 @@ class Clientes(QWidget):
         super().__init__()
         self.controller = ClientesController()
         self.pagos_controller = PagosClienteController()
-
         layout = QVBoxLayout(self)
 
         self.titulo_label = QLabel("Gestion de clientes")
@@ -61,40 +60,57 @@ class Clientes(QWidget):
         # Layout horizontal para las dos tablas (facturas y pagos)
         detalle_layout = QHBoxLayout()
 
-        # Tabla de detalle de facturación
-        self.tabla_detalle = QTableWidget()
-        self.tabla_detalle.setColumnCount(6)
-        self.tabla_detalle.setHorizontalHeaderLabels([
+        # Grupo de Facturas Pendientes
+        group_pendientes = QGroupBox("Facturas Pendientes")
+        vbox_pendientes = QVBoxLayout()
+        # Tabla de facturas pendientes
+        self.tabla_facturas_pendientes = QTableWidget()
+        self.tabla_facturas_pendientes.setColumnCount(6)
+        self.tabla_facturas_pendientes.setHorizontalHeaderLabels([
             "Factura", "Fecha", "Total", "Pagado", "Saldo", "Estado"
         ])
-        self.tabla_detalle.horizontalHeader().setStretchLastSection(True)
-        self.tabla_detalle.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.tabla_detalle.setSelectionBehavior(QTableWidget.SelectRows)
-        self.tabla_detalle.setSelectionMode(QTableWidget.SingleSelection)
-        self.tabla_detalle.verticalHeader().setVisible(False)
-        self.tabla_detalle.setStyleSheet("background-color: white;")
-        detalle_layout.addWidget(self.tabla_detalle)
+        self.tabla_facturas_pendientes.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.tabla_facturas_pendientes.setSelectionBehavior(QTableWidget.SelectRows)
+        self.tabla_facturas_pendientes.setSelectionMode(QTableWidget.SingleSelection)
+        self.tabla_facturas_pendientes.verticalHeader().setVisible(False)
+        self.tabla_facturas_pendientes.setStyleSheet("background-color: #fffbe6;")
+        self.tabla_facturas_pendientes.itemSelectionChanged.connect(self.mostrar_pagos_factura_pendiente)
+        vbox_pendientes.addWidget(self.tabla_facturas_pendientes)
+        group_pendientes.setLayout(vbox_pendientes)
+        detalle_layout.addWidget(group_pendientes)
 
-        # Tabla de historial de pagos
-        self.tabla_pagos = QTableWidget()
-        self.tabla_pagos.setColumnCount(4)
-        self.tabla_pagos.setHorizontalHeaderLabels([
-            "Fecha", "Monto", "Método", "Observaciones"
+        # Grupo de Facturas Pagadas
+        group_pagadas = QGroupBox("Facturas Pagadas")
+        vbox_pagadas = QVBoxLayout()
+        # Tabla de facturas pagadas
+        self.tabla_facturas_pagadas = QTableWidget()
+        self.tabla_facturas_pagadas.setColumnCount(6)
+        self.tabla_facturas_pagadas.setHorizontalHeaderLabels([
+            "Factura", "Fecha", "Total", "Pagado", "Saldo", "Estado"
         ])
-        self.tabla_pagos.horizontalHeader().setStretchLastSection(True)
-        self.tabla_pagos.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.tabla_pagos.setSelectionBehavior(QTableWidget.SelectRows)
-        self.tabla_pagos.setSelectionMode(QTableWidget.SingleSelection)
-        self.tabla_pagos.verticalHeader().setVisible(False)
-        self.tabla_pagos.setStyleSheet("background-color: white;")
-        detalle_layout.addWidget(self.tabla_pagos)
+        self.tabla_facturas_pagadas.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.tabla_facturas_pagadas.setSelectionBehavior(QTableWidget.SelectRows)
+        self.tabla_facturas_pagadas.setSelectionMode(QTableWidget.SingleSelection)
+        self.tabla_facturas_pagadas.verticalHeader().setVisible(False)
+        self.tabla_facturas_pagadas.setStyleSheet("background-color: #e6fff2;")
+        vbox_pagadas.addWidget(self.tabla_facturas_pagadas)
+        group_pagadas.setLayout(vbox_pagadas)
+        detalle_layout.addWidget(group_pagadas)
 
         layout.addLayout(detalle_layout)
 
-        # Resumen de pagos
-        self.resumen_label = QLabel("")
-        layout.addWidget(self.resumen_label)
-        self.tabla.itemSelectionChanged.connect(self.mostrar_resumen_cliente)
+        # Tabla de historial de pagos de la factura seleccionada
+        self.tabla_historial_pagos = QTableWidget()
+        self.tabla_historial_pagos.setColumnCount(4)
+        self.tabla_historial_pagos.setHorizontalHeaderLabels([
+            "Fecha", "Monto", "Método", "Observaciones"
+        ])
+        self.tabla_historial_pagos.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.tabla_historial_pagos.verticalHeader().setVisible(False)
+        self.tabla_historial_pagos.setSelectionBehavior(QTableWidget.SelectRows)
+        self.tabla_historial_pagos.setStyleSheet("background-color: #f0f4ff;")
+        layout.addWidget(QLabel("Historial de pagos de la factura seleccionada:"))
+        layout.addWidget(self.tabla_historial_pagos)
 
         # Botones
         btn_layout = QHBoxLayout()
@@ -119,6 +135,8 @@ class Clientes(QWidget):
         self.setLayout(layout)
 
         self.cargar_clientes()
+
+        self.tabla.selectionModel().selectionChanged.connect(lambda: self.mostrar_resumen_cliente())
 
     def cargar_clientes(self):
         filtro = self.filtro_input.text()
@@ -146,7 +164,6 @@ class Clientes(QWidget):
             return
         cliente_id = int(self.tabla.verticalHeaderItem(row).text())
         self.cargar_detalle_cliente(cliente_id)
-        self.cargar_pagos_cliente(cliente_id)
 
     def agregar_cliente(self):
         dialog = FormularioCliente(self)
@@ -173,45 +190,67 @@ class Clientes(QWidget):
 
     def cargar_detalle_cliente(self, cliente_id):
         facturas = self.controller.get_facturas_cliente(cliente_id)
-        self.tabla_detalle.setRowCount(0)
+        self.tabla_facturas_pendientes.setRowCount(0)
+        self.tabla_facturas_pagadas.setRowCount(0)
         for factura in facturas:
             factura_id, numero, fecha, total, estado = factura
             pagado = self.pagos_controller.total_pagado_factura(factura_id)
             saldo = round(total - pagado, 2)
-            row = self.tabla_detalle.rowCount()
-            self.tabla_detalle.insertRow(row)
-            # Formatea los números como moneda
-            total_str = "${:,.2f}".format(total)
-            pagado_str = "${:,.2f}".format(pagado)
-            saldo_str = "${:,.2f}".format(saldo)
-            for col, value in enumerate([
-                numero, fecha, total_str, pagado_str, saldo_str
-            ]):
+            estado_mostrar = "PENDIENTE" if saldo > 0 else "PAGADA"
+            print(f"Factura {numero} | Total: {total} | Pagado: {pagado} | Saldo: {saldo} | Estado: {estado_mostrar}")
+            datos = [numero, fecha, f"${total:,.2f}", f"${pagado:,.2f}", f"${saldo:,.2f}", estado_mostrar]
+            if saldo > 0:
+                tabla = self.tabla_facturas_pendientes
+                color = QColor("#fff3cd")  # Amarillo suave para pendientes
+            else:
+                tabla = self.tabla_facturas_pagadas
+                color = QColor("#d4edda")  # Verde suave para pagadas
+            row = tabla.rowCount()
+            tabla.insertRow(row)
+            for col, value in enumerate(datos):
                 item = QTableWidgetItem(str(value))
                 item.setTextAlignment(Qt.AlignCenter)
-                self.tabla_detalle.setItem(row, col, item)
-            estado_item = QTableWidgetItem(estado)
-            estado_item.setTextAlignment(Qt.AlignCenter)
-            if estado == "PAGADA":
-                estado_item.setBackground(QColor(144, 238, 144))  # Verde claro
-            elif estado == "PENDIENTE":
-                estado_item.setBackground(QColor(255, 255, 102))  # Amarillo claro
-            self.tabla_detalle.setItem(row, 5, estado_item)
+                # Color de fondo general para la fila
+                item.setBackground(color)
+                # Si es la columna "Estado", dale un color más intenso
+                if col == 5:  # Columna "Estado"
+                    if estado_mostrar == "PENDIENTE":
+                        item.setBackground(QColor("#ffc107"))  # Amarillo intenso
+                    else:
+                        item.setBackground(QColor("#28a745"))  # Verde intenso
+                        item.setForeground(QColor("white"))    # Texto blanco para contraste
+                tabla.setItem(row, col, item)
+            vh_item = QTableWidgetItem(str(factura_id))
+            vh_item.setTextAlignment(Qt.AlignCenter)
+            tabla.setVerticalHeaderItem(row, vh_item)
 
-    def cargar_pagos_cliente(self, cliente_id):
-        pagos = self.pagos_controller.obtener_pagos_cliente(cliente_id)
-        self.tabla_pagos.setRowCount(0)
+        # Cambia los encabezados para mostrar el estado
+        self.tabla_facturas_pendientes.setColumnCount(6)
+        self.tabla_facturas_pendientes.setHorizontalHeaderLabels([
+            "Factura", "Fecha", "Total", "Pagado", "Saldo", "Estado"
+        ])
+        self.tabla_facturas_pagadas.setColumnCount(6)
+        self.tabla_facturas_pagadas.setHorizontalHeaderLabels([
+            "Factura", "Fecha", "Total", "Pagado", "Saldo", "Estado"
+        ])
+
+    def mostrar_pagos_factura_pendiente(self):
+        row = self.tabla_facturas_pendientes.currentRow()
+        if row < 0:
+            self.tabla_historial_pagos.setRowCount(0)
+            return
+        factura_id = int(self.tabla_facturas_pendientes.verticalHeaderItem(row).text())
+        pagos = self.pagos_controller.get_pagos_por_factura(factura_id)
+        self.tabla_historial_pagos.setRowCount(0)
         for pago in pagos:
             # pago: (id, factura_id, fecha_pago, monto, metodo_pago, observaciones)
-            row = self.tabla_pagos.rowCount()
-            self.tabla_pagos.insertRow(row)
+            row_p = self.tabla_historial_pagos.rowCount()
+            self.tabla_historial_pagos.insertRow(row_p)
             monto_str = "${:,.2f}".format(pago[3])
-            for col, value in enumerate([
-                pago[2], monto_str, pago[4], pago[5] or ""
-            ]):
+            for col, value in enumerate([pago[2], monto_str, pago[4], pago[5] or ""]):
                 item = QTableWidgetItem(str(value))
                 item.setTextAlignment(Qt.AlignCenter)
-                self.tabla_pagos.setItem(row, col, item)
+                self.tabla_historial_pagos.setItem(row_p, col, item)
 
     def exportar_csv(self):
         path, _ = QFileDialog.getSaveFileName(self, "Exportar clientes", "", "CSV Files (*.csv)")
@@ -223,3 +262,5 @@ class Clientes(QWidget):
             for row in range(self.tabla.rowCount()):
                 writer.writerow([self.tabla.item(row, col).text() for col in range(self.tabla.columnCount())])
         QMessageBox.information(self, "Exportar", "Clientes exportados correctamente.")
+        print("Pendientes:", self.tabla_facturas_pendientes.rowCount())
+        print("Pagadas:", self.tabla_facturas_pagadas.rowCount())

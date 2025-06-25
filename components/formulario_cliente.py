@@ -8,14 +8,14 @@ class FormularioCliente(QDialog):
         self.setWindowTitle("Agregar Cliente")
         layout = QFormLayout(self)
 
-        self.input_encargado = QLineEdit()
+        self.input_nombre = QLineEdit()
         self.input_empresa = QLineEdit()
         self.input_documento = QLineEdit()
         self.input_direccion = QLineEdit()
         self.input_telefono = QLineEdit()
         self.input_email = QLineEdit()
 
-        layout.addRow("Encargado:", self.input_encargado)
+        layout.addRow("Nombre:", self.input_nombre)
         layout.addRow("Empresa:", self.input_empresa)
         layout.addRow("N° Documento:", self.input_documento)
         layout.addRow("Dirección:", self.input_direccion)
@@ -29,7 +29,7 @@ class FormularioCliente(QDialog):
 
     def get_data(self):
         return (
-            self.input_encargado.text(),
+            self.input_nombre.text(),
             self.input_empresa.text(),
             self.input_documento.text(),
             self.input_direccion.text(),
