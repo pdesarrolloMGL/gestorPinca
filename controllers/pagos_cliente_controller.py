@@ -30,3 +30,6 @@ class PagosClienteController:
 
     def get_pagos_por_factura(self, factura_id):
         return self.model.get_pagos_por_factura(factura_id)
+
+    def get_pagos_por_factura_completo(self, factura_id):
+        return self.model.get_pagos_por_factura_completo(factura_id)

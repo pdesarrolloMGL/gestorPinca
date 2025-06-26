@@ -170,6 +170,10 @@ QLabel#SumaTotalLabel {
     margin-right: 10px;
 }
 
+QLabel {
+    background-color: transparent;
+}
+
 /* Estilo de las tablas y select */
 
 QPushButton#btnInventario.active-inventario {

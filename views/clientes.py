@@ -74,7 +74,6 @@ class Clientes(QWidget):
         self.tabla_facturas_pendientes.setSelectionMode(QTableWidget.SingleSelection)
         self.tabla_facturas_pendientes.verticalHeader().setVisible(False)
         self.tabla_facturas_pendientes.setStyleSheet("background-color: #fffbe6;")
-        self.tabla_facturas_pendientes.itemSelectionChanged.connect(self.mostrar_pagos_factura_pendiente)
         vbox_pendientes.addWidget(self.tabla_facturas_pendientes)
         group_pendientes.setLayout(vbox_pendientes)
         detalle_layout.addWidget(group_pendientes)
@@ -137,6 +136,10 @@ class Clientes(QWidget):
         self.cargar_clientes()
 
         self.tabla.selectionModel().selectionChanged.connect(lambda: self.mostrar_resumen_cliente())
+
+        # Conectar eventos de selección para AMBAS tablas
+        self.tabla_facturas_pendientes.itemSelectionChanged.connect(self.mostrar_pagos_factura_pendiente)
+        self.tabla_facturas_pagadas.itemSelectionChanged.connect(self.mostrar_pagos_factura_pagada)
 
     def cargar_clientes(self):
         filtro = self.filtro_input.text()
@@ -235,22 +238,75 @@ class Clientes(QWidget):
         ])
 
     def mostrar_pagos_factura_pendiente(self):
+        """Mostrar pagos de factura seleccionada (pendiente)"""
         row = self.tabla_facturas_pendientes.currentRow()
         if row < 0:
             self.tabla_historial_pagos.setRowCount(0)
             return
         factura_id = int(self.tabla_facturas_pendientes.verticalHeaderItem(row).text())
-        pagos = self.pagos_controller.get_pagos_por_factura(factura_id)
-        self.tabla_historial_pagos.setRowCount(0)
-        for pago in pagos:
-            # pago: (id, factura_id, fecha_pago, monto, metodo_pago, observaciones)
-            row_p = self.tabla_historial_pagos.rowCount()
-            self.tabla_historial_pagos.insertRow(row_p)
-            monto_str = "${:,.2f}".format(pago[3])
-            for col, value in enumerate([pago[2], monto_str, pago[4], pago[5] or ""]):
-                item = QTableWidgetItem(str(value))
+        self.mostrar_pagos_factura(factura_id)
+
+    def mostrar_pagos_factura_pagada(self):
+        """Mostrar pagos de factura seleccionada (pagada)"""
+        row = self.tabla_facturas_pagadas.currentRow()
+        if row < 0:
+            self.tabla_historial_pagos.setRowCount(0)
+            return
+        factura_id = int(self.tabla_facturas_pagadas.verticalHeaderItem(row).text())
+        self.mostrar_pagos_factura(factura_id)
+
+    def mostrar_pagos_factura(self, factura_id):
+        """Método común para mostrar pagos de cualquier factura"""
+        try:
+            pagos = self.pagos_controller.get_pagos_por_factura(factura_id)
+            self.tabla_historial_pagos.setRowCount(0)
+            
+            # Configurar siempre las columnas correctamente
+            self.tabla_historial_pagos.setColumnCount(4)
+            self.tabla_historial_pagos.setHorizontalHeaderLabels([
+                "Fecha", "Monto", "Método", "Observaciones"
+            ])
+            
+            if not pagos:
+                # Si no hay pagos, mostrar mensaje
+                self.tabla_historial_pagos.setRowCount(1)
+                item = QTableWidgetItem("No hay pagos registrados para esta factura")
                 item.setTextAlignment(Qt.AlignCenter)
-                self.tabla_historial_pagos.setItem(row_p, col, item)
+                self.tabla_historial_pagos.setItem(0, 0, item)
+                self.tabla_historial_pagos.setSpan(0, 0, 1, 4)  # Combinar celdas
+                return
+            
+            # Llenar tabla con pagos
+            for pago in pagos:
+                # Ahora pago es: (fecha_pago, monto, metodo_pago, observaciones)
+                row_p = self.tabla_historial_pagos.rowCount()
+                self.tabla_historial_pagos.insertRow(row_p)
+                
+                # Formatear el monto con formato colombiano
+                monto_formateado = "${:,.2f}".format(pago[1]).replace(',', 'TEMP').replace('.', ',').replace('TEMP', '.')
+                
+                datos = [
+                    pago[0] or "",           # fecha_pago (índice 0)
+                    monto_formateado,        # monto formateado
+                    pago[2] or "",           # metodo_pago (índice 2)
+                    pago[3] or ""            # observaciones (índice 3)
+                ]
+                
+                for col, value in enumerate(datos):
+                    item = QTableWidgetItem(str(value))
+                    item.setTextAlignment(Qt.AlignCenter)
+                    self.tabla_historial_pagos.setItem(row_p, col, item)
+    
+            # CONFIGURAR EL ANCHO DE COLUMNAS PARA QUE OCUPE TODO EL ESPACIO
+            header = self.tabla_historial_pagos.horizontalHeader()
+            header.setSectionResizeMode(0, QHeaderView.Stretch)  # Fecha - ajustar al contenido
+            header.setSectionResizeMode(1, QHeaderView.Stretch)  # Monto - ajustar al contenido
+            header.setSectionResizeMode(2, QHeaderView.Stretch)  # Método - ajustar al contenido
+            header.setSectionResizeMode(3, QHeaderView.Stretch)           # Observaciones - ocupar espacio restante
+            
+        except Exception as e:
+            print(f"Error mostrando pagos de factura {factura_id}: {e}")
+            QMessageBox.warning(self, "Error", f"Error cargando pagos: {e}")
 
     def exportar_csv(self):
         path, _ = QFileDialog.getSaveFileName(self, "Exportar clientes", "", "CSV Files (*.csv)")

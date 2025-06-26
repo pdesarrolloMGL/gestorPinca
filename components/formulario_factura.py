@@ -1,327 +1,429 @@
 from PyQt5.QtWidgets import (
     QDialog, QFormLayout, QLineEdit, QComboBox, QDateEdit, QDoubleSpinBox, 
     QDialogButtonBox, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, 
-    QTableWidgetItem, QSpinBox, QLabel, QGroupBox, QCheckBox, QSizePolicy, QHeaderView
+    QTableWidgetItem, QSpinBox, QLabel, QGroupBox, QCheckBox, QSizePolicy, 
+    QHeaderView, QFrame, QGridLayout
 )
-from PyQt5.QtCore import QDate, Qt, QLocale
-from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import QDate, Qt, pyqtSignal
+from PyQt5.QtGui import QIcon, QFont
 from controllers.inventario_controller import InventarioController
+import locale
+import re
+from datetime import datetime
+
+class InputMoneda(QLineEdit):
+    valueChanged = pyqtSignal(float)
+    
+    def __init__(self):
+        super().__init__()
+        self.setPlaceholderText("0.00")
+        self.textChanged.connect(self.formatear_moneda)
+        self.setAlignment(Qt.AlignRight)
+        self._value = 0.0
+        
+    def formatear_moneda(self, text):
+        # Remover caracteres no numéricos excepto punto y coma
+        text_limpio = re.sub(r'[^\d.,]', '', text)
+        
+        if not text_limpio:
+            self._value = 0.0
+            self.valueChanged.emit(0.0)
+            return
+        
+        # Convertir coma a punto para cálculos
+        text_para_calculo = text_limpio.replace(',', '.')
+        
+        try:
+            self._value = float(text_para_calculo)
+            self.valueChanged.emit(self._value)
+        except ValueError:
+            self._value = 0.0
+            self.valueChanged.emit(0.0)
+    
+    def value(self):
+        return self._value
+    
+    def setValue(self, valor):
+        self._value = valor
+        self.setText(f"{valor:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
 
 class FormularioFactura(QDialog):
     def __init__(self, clientes, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Crear Factura")
-        self.setMinimumSize(900, 700)  # Más grande
+        self.setWindowTitle("Nueva Factura")
         
-        # Agregar estilo para fondo blanco
+        # Estilo minimalista mejorado
         self.setStyleSheet("""
             QDialog {
-                background-color: white;
+                background-color: #ffffff;
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 18px;
             }
+            
             QGroupBox {
                 font-weight: bold;
-                border: 2px solid #bdc3c7;
-                border-radius: 8px;
+                font-size: 18px;
+                color: #333333;
+                border: 1px solid #cccccc;
+                border-radius: 4px;
                 margin-top: 10px;
-                padding-top: 10px;
-                background-color: white;
+                padding-top: 5px;
+                background-color: #fafafa;
             }
+            
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 10px;
-                padding: 0 5px 0 5px;
-                background-color: white;
+                padding: 0 8px;
+                background-color: transparent;  /* ✅ FONDO TRANSPARENTE */
+                color: #333333;
             }
-            QLabel {
-                background-color: white;
-                color: black;
+            
+            QLineEdit, QComboBox, QDateEdit, QSpinBox {
+                border: 1px solid #cccccc;
+                border-radius: 3px;
+                padding: 6px;
+                background-color: #ffffff;
+                font-size: 18px;
             }
-            QLineEdit, QComboBox, QDateEdit, QSpinBox, QDoubleSpinBox {
-                border: 1px solid #bdc3c7;
-                border-radius: 4px;
-                padding: 5px;
-                background-color: white;
+            
+            QLineEdit:focus, QComboBox:focus, QDateEdit:focus, QSpinBox:focus {
+                border: 1px solid #4a90e2;
             }
+            
             QTableWidget {
-                background-color: white;
-                border: 1px solid #bdc3c7;
-                border-radius: 4px;
+                background-color: #ffffff;
+                border: 1px solid #cccccc;
+                gridline-color: #e0e0e0;
+                font-size: 18px;
             }
-            QPushButton {
-                background-color: #3498db;
-                color: white;
+            
+            QTableWidget::item {
+                padding: 4px;
                 border: none;
-                border-radius: 4px;
-                padding: 8px 16px;
+            }
+            
+            QTableWidget::item:selected {
+                background-color: #e3f2fd;
+            }
+            
+            QHeaderView::section {
+                background-color: #f5f5f5;
+                color: #333333;
+                padding: 6px;
+                border: 1px solid #cccccc;
                 font-weight: bold;
+                font-size: 18px;
             }
-            QPushButton:hover {
-                background-color: #2980b9;
-            }
+            
+            /* ✅ CHECKBOX SIMPLE Y FUNCIONAL */
             QCheckBox {
-                background-color: white;
-                color: black;
+                color: #333333;
+                font-size: 18px;
+                spacing: 8px;
+                background-color: transparent;
             }
+            
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+                border: 2px solid #cccccc;
+                border-radius: 3px;
+                background-color: #ffffff;
+            }
+            
+            QCheckBox::indicator:hover {
+                border: 2px solid #4a90e2;
+                background-color: #f8f9fa;
+            }
+            
+            QCheckBox::indicator:checked {
+                background-color: #4a90e2;
+                border: 2px solid #4a90e2;
+            }
+            
+            QLabel {
+                color: #333333;
+                font-size: 18px;
+                background-color: transparent;
+            }
+            
+            QLabel#total {
+                font-size: 18px;
+                font-weight: bold;
+                color: #2e7d32;
+                background-color: #e8f5e8;
+                padding: 8px;
+                border: 1px solid #4caf50;
+                border-radius: 3px;
+            }
+            QPushButton#btnFactura {
+            background-color: #28a745;
+            color: white;
+            border-radius: 5px;
+            padding: 10px 12px;
+        }
         """)
         
         self.inventario_controller = InventarioController()
-        layout = QVBoxLayout(self)
-
-        # --- NUEVO: Layout horizontal para datos principales ---
-        datos_group = QGroupBox("Datos de la Factura")
-        datos_layout = QHBoxLayout()
-        form_layout_izq = QFormLayout()
-        form_layout_der = QFormLayout()
-
+        self.productos_factura = []
+        
+        # Layout principal
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(8)
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        
+        # Layout principal horizontal
+        content_layout = QHBoxLayout()
+        
         # Columna izquierda
+        left_column = QVBoxLayout()
+        left_column.setSpacing(8)
+        
+        # Información de factura
+        info_group = QGroupBox("Información de Factura")
+        info_layout = QGridLayout()
+        info_layout.setSpacing(8)
+        
+        # ✅ FILA 1 - NÚMERO Y FECHA
+        info_layout.addWidget(QLabel("Número:"), 0, 0)
         self.input_numero = QLineEdit()
-        self.combo_cliente = QComboBox()
-        for cliente in clientes:
-            nombre = f"{cliente[1]} / {cliente[2]}" if cliente[2] else cliente[1]
-            self.combo_cliente.addItem(nombre, cliente[0])
+        
+        # ✅ HACER EL CAMPO SOLO LECTURA
+        self.input_numero.setReadOnly(True)
+        self.input_numero.setStyleSheet("""
+            QLineEdit {
+                background-color: #f8f9fa;
+                color: #495057;
+                font-weight: bold;
+                border: 1px solid #ced4da;
+            }
+            QLineEdit:focus {
+                border: 1px solid #ced4da;
+                background-color: #f8f9fa;
+            }
+        """)
+        
+        # ✅ GENERAR NÚMERO AUTOMÁTICAMENTE AL INICIALIZAR
+        self.generar_numero_factura()
+        
+        info_layout.addWidget(self.input_numero, 0, 1)
+        
+        # ✅ BOTÓN REGENERAR
+        btn_regenerar = QPushButton("🔄")
+        btn_regenerar.setMaximumWidth(35)
+        btn_regenerar.setMaximumHeight(30)
+        btn_regenerar.setToolTip("Regenerar número de factura")
+        btn_regenerar.setObjectName("btnRefrescar")
+        btn_regenerar.clicked.connect(self.generar_numero_factura)  # ✅ CONECTAR AL MÉTODO
+        info_layout.addWidget(btn_regenerar, 0, 2)
+        
+        # ✅ FECHA EN LA MISMA FILA
+        info_layout.addWidget(QLabel("Fecha:"), 0, 3)
         self.input_fecha = QDateEdit(QDate.currentDate())
         self.input_fecha.setCalendarPopup(True)
-        form_layout_izq.addRow("N° Factura:", self.input_numero)
-        form_layout_izq.addRow("Cliente:", self.combo_cliente)
-        form_layout_izq.addRow("Fecha:", self.input_fecha)
-
-        # Columna derecha
-        self.combo_estado = QComboBox()
-        self.combo_estado.addItems(["PENDIENTE", "PAGADA"])
-        self.check_iva = QCheckBox("Incluir IVA (19%)")
-        self.check_iva.setChecked(True)
-        self.check_iva.stateChanged.connect(self.calcular_totales)
-        form_layout_der.addRow("Estado:", self.combo_estado)
-        form_layout_der.addRow("", self.check_iva)
-
-        # Campos de pago inicial
-        self.pago_monto_input = QLineEdit()
+        info_layout.addWidget(self.input_fecha, 0, 4)
+        
+        # ✅ FILA 2 - CLIENTE Y ESTADO
+        info_layout.addWidget(QLabel("Cliente:"), 1, 0)
+        self.combo_cliente = QComboBox()
+        self.combo_cliente.setMinimumWidth(400)
+        for cliente in clientes:
+            nombre = f"{cliente[1]} - {cliente[2]}" if cliente[2] else cliente[1]
+            self.combo_cliente.addItem(nombre, cliente[0])
+        info_layout.addWidget(self.combo_cliente, 1, 1, 1, 3)  # Ocupa 3 columnas
+        
+        info_layout.addWidget(QLabel("Estado:"), 1, 4)
+        self.label_estado = QLabel("PENDIENTE")
+        self.label_estado.setStyleSheet("""
+            QLabel {
+                background-color: #fff3cd;
+                color: #856404;
+                border: 1px solid #ffeaa7;
+                border-radius: 3px;
+                padding: 6px;
+                font-weight: bold;
+            }
+        """)
+        info_layout.addWidget(self.label_estado, 1, 4)
+        
+        info_group.setLayout(info_layout)
+        left_column.addWidget(info_group)
+        
+        # Pago inicial
+        pago_group = QGroupBox("Pago Inicial (Opcional)")
+        pago_layout = QGridLayout()
+        pago_layout.setSpacing(8)
+        
+        pago_layout.addWidget(QLabel("Monto:"), 0, 0)
+        self.pago_monto_input = InputMoneda()
+        # ✅ CONECTAR CAMBIOS EN PAGO PARA RECALCULAR ESTADO
+        self.pago_monto_input.valueChanged.connect(self.calcular_estado_por_pago)
+        pago_layout.addWidget(self.pago_monto_input, 0, 1)
+        
+        pago_layout.addWidget(QLabel("Método:"), 0, 2)
         self.pago_metodo_input = QComboBox()
-        self.pago_metodo_input.addItems(["Efectivo", "Transferencia", "Tarjeta", "Otro"])
+        self.pago_metodo_input.addItems(["EFECTIVO", "TRANSFERENCIA", "TARJETA", "OTRO"])
+        pago_layout.addWidget(self.pago_metodo_input, 0, 3)
+        
+        pago_layout.addWidget(QLabel("Observaciones:"), 1, 0)
         self.pago_obs_input = QLineEdit()
-        form_layout_der.addRow("Pago inicial:", self.pago_monto_input)
-        form_layout_der.addRow("Método de pago:", self.pago_metodo_input)
-        form_layout_der.addRow("Observaciones pago:", self.pago_obs_input)
-
-        datos_layout.addLayout(form_layout_izq)
-        datos_layout.addSpacing(40)  # Espacio entre columnas
-        datos_layout.addLayout(form_layout_der)
-        datos_group.setLayout(datos_layout)
-        layout.addWidget(datos_group)
-
-        # --- Espacio entre grupos ---
-        layout.addSpacing(20)
-
-        # Sección de productos (igual que antes)
-        productos_group = QGroupBox("Productos")
-        productos_layout = QVBoxLayout()
-
+        self.pago_obs_input.setPlaceholderText("Observaciones del pago...")
+        pago_layout.addWidget(self.pago_obs_input, 1, 1, 1, 3)
+        
+        pago_group.setLayout(pago_layout)
+        left_column.addWidget(pago_group)
+        
         # Agregar producto
-        agregar_layout = QHBoxLayout()
+        producto_group = QGroupBox("Agregar Producto")
+        producto_layout = QGridLayout()
+        producto_layout.setSpacing(8)
+        
+        producto_layout.addWidget(QLabel("Producto:"), 0, 0)
         self.combo_producto = QComboBox()
+        self.combo_producto.setMinimumWidth(250)
         self.cargar_productos()
+        producto_layout.addWidget(self.combo_producto, 0, 1, 1, 2)
+        
+        producto_layout.addWidget(QLabel("Cantidad:"), 1, 0)
         self.input_cantidad = QSpinBox()
         self.input_cantidad.setMinimum(1)
         self.input_cantidad.setMaximum(9999)
-
-        # MEJORAS AL INPUT DE PRECIO
-        self.input_precio = QDoubleSpinBox()
-        self.input_precio.setMaximum(1e9)
-        self.input_precio.setMinimum(0.01)
-        self.input_precio.setPrefix("$ ")
-        self.input_precio.setDecimals(2)
-        self.input_precio.setSingleStep(100)
-        self.input_precio.setMinimumWidth(120)
-        self.input_precio.setMaximumWidth(150)
-        self.input_precio.setAlignment(Qt.AlignCenter)
-
-        # Configurar formato colombiano (punto para miles, coma para decimales)
-        locale_colombiano = QLocale(QLocale.Spanish, QLocale.Colombia)
-        self.input_precio.setLocale(locale_colombiano)
-
-        # Configurar formato para mostrar separadores
-        self.input_precio.setGroupSeparatorShown(True)  # Mostrar separador de miles
-
-        self.input_precio.setValue(0.00)  # Valor inicial
-
-        # Aplicar estilo específico al input precio
-        self.input_precio.setStyleSheet("""
-            QDoubleSpinBox {
-                border: 2px solid #3498db;
-                border-radius: 6px;
-                padding: 8px;
-                background-color: #f8f9fa;
-                font-size: 14px;
-                font-weight: bold;
-                color: #2c3e50;
-            }
-            QDoubleSpinBox:focus {
-                border: 2px solid #e74c3c;
-                background-color: #ffffff;
-            }
-            QDoubleSpinBox:hover {
-                border: 2px solid #27ae60;
-                background-color: #ffffff;
-            }
-            QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
-                width: 20px;
-                border: none;
-                background-color: #3498db;
-                color: white;
-            }
-            QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
-                background-color: #2980b9;
-            }
-        """)
-
-        # Mejorar estilo de cantidad
-        self.input_cantidad.setStyleSheet("""
-            QSpinBox {
-                border: 2px solid #95a5a6;
-                border-radius: 6px;
-                padding: 8px;
-                background-color: #f8f9fa;
-                font-size: 14px;
-                font-weight: bold;
-                min-width: 80px;
-                max-width: 100px;
-            }
-            QSpinBox:focus {
-                border: 2px solid #3498db;
-                background-color: #ffffff;
-            }
-            QSpinBox::up-button, QSpinBox::down-button {
-                width: 20px;
-                border: none;
-                background-color: #95a5a6;
-                color: white;
-            }
-            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
-                background-color: #7f8c8d;
-            }
-        """)
-
-        # Mejorar estilo del combo producto
-        self.combo_producto.setStyleSheet("""
-            QComboBox {
-                border: 2px solid #95a5a6;
-                border-radius: 6px;
-                padding: 8px;
-                background-color: #f8f9fa;
-                font-size: 14px;
-                min-width: 200px;
-            }
-            QComboBox:focus {
-                border: 2px solid #3498db;
-                background-color: #ffffff;
-            }
-            QComboBox::drop-down {
-                border: none;
-                width: 30px;
-            }
-            QComboBox::down-arrow {
-                width: 12px;
-                height: 12px;
-            }
-        """)
-
-        self.btn_agregar_producto = QPushButton("Agregar Producto")
-        self.btn_agregar_producto.clicked.connect(self.agregar_producto)
-
-        # Mejorar estilo del botón agregar
-        self.btn_agregar_producto.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 10px 20px;
-                font-weight: bold;
-                font-size: 14px;
-                min-width: 120px;
-            }
-            QPushButton:hover {
-                background-color: #2ecc71;
-            }
-            QPushButton:pressed {
-                background-color: #229954;
-            }
-        """)
-
-        # Mejorar el layout del formulario de agregar producto
-        agregar_layout.addWidget(QLabel("Producto:"))
-        agregar_layout.addWidget(self.combo_producto, 2)  # Stretch factor 2
-        agregar_layout.addWidget(QLabel("Cantidad:"))
-        agregar_layout.addWidget(self.input_cantidad)
-        agregar_layout.addWidget(QLabel("Precio:"))
-        agregar_layout.addWidget(self.input_precio)
-        agregar_layout.addWidget(self.btn_agregar_producto)
+        self.input_cantidad.setValue(1)
+        producto_layout.addWidget(self.input_cantidad, 1, 1)
         
-        productos_layout.addLayout(agregar_layout)
-
-        # Tabla de productos agregados
+        producto_layout.addWidget(QLabel("Precio:"), 1, 2)
+        self.input_precio = InputMoneda()
+        self.input_precio.valueChanged.connect(self.calcular_totales)
+        producto_layout.addWidget(self.input_precio, 1, 3)
+        
+        self.btn_agregar_producto = QPushButton("Agregar")
+        self.btn_agregar_producto.setObjectName("btnFactura")
+        self.btn_agregar_producto.clicked.connect(self.agregar_producto)
+        producto_layout.addWidget(self.btn_agregar_producto, 1, 4)
+        
+        producto_group.setLayout(producto_layout)
+        left_column.addWidget(producto_group)
+        
+        # Totales
+        totales_group = QGroupBox("Totales")
+        totales_layout = QGridLayout()
+        totales_layout.setSpacing(8)
+        
+        # Modificar el checkbox IVA para recalcular estado
+        self.check_iva = QCheckBox("Incluir IVA (19%)")
+        self.check_iva.setChecked(True)
+        self.check_iva.stateChanged.connect(self.calcular_totales)
+        totales_layout.addWidget(self.check_iva, 0, 0, 1, 2)
+        
+        totales_layout.addWidget(QLabel("Subtotal:"), 1, 0)
+        self.label_subtotal = QLabel("0.00")
+        self.label_subtotal.setAlignment(Qt.AlignRight)
+        totales_layout.addWidget(self.label_subtotal, 1, 1)
+        
+        totales_layout.addWidget(QLabel("IVA:"), 2, 0)
+        self.label_impuestos = QLabel("0.00")
+        self.label_impuestos.setAlignment(Qt.AlignRight)
+        totales_layout.addWidget(self.label_impuestos, 2, 1)
+        
+        totales_layout.addWidget(QLabel("TOTAL:"), 3, 0)
+        self.label_total = QLabel("0.00")
+        self.label_total.setObjectName("total")
+        self.label_total.setAlignment(Qt.AlignRight)
+        totales_layout.addWidget(self.label_total, 3, 1)
+        
+        totales_group.setLayout(totales_layout)
+        left_column.addWidget(totales_group)
+        
+        left_column.addStretch()
+        
+        # Columna derecha - Tabla de productos
+        right_column = QVBoxLayout()
+        right_column.setSpacing(8)  # ✅ AGREGAR ESPACIADO
+        
+        productos_group = QGroupBox("Productos de la Factura")
+        productos_layout = QVBoxLayout()
+        productos_layout.setContentsMargins(8, 8, 8, 8)  # ✅ MÁRGENES INTERNOS
+        
         self.tabla_productos = QTableWidget()
         self.tabla_productos.setColumnCount(5)
         self.tabla_productos.setHorizontalHeaderLabels([
             "Producto", "Cantidad", "Precio", "Subtotal", "Eliminar"
         ])
-
-        # Configurar para que ocupe todo el espacio disponible
-        self.tabla_productos.setMinimumHeight(200)
+        self.tabla_productos.setMinimumHeight(400)
+        
+        # ✅ CONFIGURAR POLÍTICA DE TAMAÑO PARA QUE USE TODO EL ESPACIO
         self.tabla_productos.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-        # Configurar el ancho de las columnas
+        
+        # Configurar columnas con mejor distribución
         header = self.tabla_productos.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)  # Producto - ocupa el espacio restante
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Cantidad - ajuste al contenido
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Precio - ajuste al contenido
-        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Subtotal - ajuste al contenido
-        header.setSectionResizeMode(4, QHeaderView.Fixed)  # Eliminar - ancho fijo
-        header.resizeSection(4, 80)  # Ancho fijo de 80px para el botón eliminar
-
-        productos_layout.addWidget(self.tabla_productos, 1)  # El "1" le da stretch factor
-
+        
+        # ✅ CONFIGURACIÓN MEJORADA DE COLUMNAS
+        header.setSectionResizeMode(0, QHeaderView.Stretch)        # Producto - Ocupa espacio restante
+        header.setSectionResizeMode(1, QHeaderView.Fixed)          # Cantidad - Tamaño fijo
+        header.setSectionResizeMode(2, QHeaderView.Fixed)          # Precio - Tamaño fijo
+        header.setSectionResizeMode(3, QHeaderView.Fixed)          # Subtotal - Tamaño fijo
+        header.setSectionResizeMode(4, QHeaderView.Fixed)          # Acciones - Tamaño fijo
+        
+        # ✅ ESTABLECER ANCHOS ESPECÍFICOS
+        self.tabla_productos.setColumnWidth(1, 80)   # Cantidad
+        self.tabla_productos.setColumnWidth(2, 130)  # Precio
+        self.tabla_productos.setColumnWidth(3, 130)  # Subtotal
+        self.tabla_productos.setColumnWidth(4, 90)   # Eliminar
+        
+        # ✅ CONFIGURACIONES ADICIONALES
+        header.setMinimumSectionSize(60)
+        header.setDefaultSectionSize(100)
+        header.setStretchLastSection(False)  # No estirar la última columna
+        
+        self.tabla_productos.verticalHeader().setVisible(False)
+        
+        # ✅ ASEGURAR QUE LA TABLA SE EXPANDA HORIZONTALMENTE
+        self.tabla_productos.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.tabla_productos.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        
+        productos_layout.addWidget(self.tabla_productos)
         productos_group.setLayout(productos_layout)
-        layout.addWidget(productos_group)
-
-        layout.addSpacing(20)
-
-        # Totales (igual que antes)
-        totales_group = QGroupBox("Totales")
-        totales_layout = QFormLayout()
+        right_column.addWidget(productos_group)
         
-        self.label_subtotal = QLabel("$0.00")
-        self.label_impuestos = QLabel("$0.00")
-        self.label_total = QLabel("$0.00")
+        # Agregar columnas al layout principal con mejor proporción
+        content_layout.addLayout(left_column, 1)    # ✅ Columna izquierda 1 parte
+        content_layout.addLayout(right_column, 3)   # ✅ Columna derecha 3 partes (más espacio)
         
-        # Hacer los labels más visibles
-        self.label_subtotal.setStyleSheet("font-weight: bold; color: #2c3e50;")
-        self.label_impuestos.setStyleSheet("font-weight: bold; color: #e74c3c;")
-        self.label_total.setStyleSheet("font-weight: bold; font-size: 16px; color: #27ae60;")
+        main_layout.addLayout(content_layout)
         
-        totales_layout.addRow("Subtotal:", self.label_subtotal)
-        totales_layout.addRow("IVA (19%):", self.label_impuestos)
-        totales_layout.addRow("Total:", self.label_total)
-        
-        totales_group.setLayout(totales_layout)
-        layout.addWidget(totales_group)
-
-        layout.addSpacing(20)
-
         # Botones
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        self.buttons.accepted.connect(self.accept)
-        self.buttons.rejected.connect(self.reject)
-        layout.addWidget(self.buttons)
+        botones_layout = QHBoxLayout()
+        botones_layout.addStretch()
+        
+        btn_cancelar = QPushButton("Cancelar")
+        btn_cancelar.setObjectName("btnRojo")
+        btn_cancelar.clicked.connect(self.reject)
+        botones_layout.addWidget(btn_cancelar)
+        
+        btn_guardar = QPushButton("Guardar")
+        btn_guardar.setObjectName("btnRefrescar")
+        btn_guardar.clicked.connect(self.accept)
+        botones_layout.addWidget(btn_guardar)
+        
+        main_layout.addLayout(botones_layout)
 
-        self.productos_factura = []
-
+        # ✅ CONFIGURAR TAMAÑO Y POSICIÓN CON setGeometry()
+        screen_geometry = self.screen().geometry()
+        width = int(screen_geometry.width() * 0.75)
+        height = int(screen_geometry.height() * 0.80)
+        
+        # Calcular posición centrada
+        x = (screen_geometry.width() - width) // 2
+        y = (screen_geometry.height() - height) // 2
+        
+        # Establecer geometría (posición y tamaño)
+        self.setGeometry(x, y, width, height)
 
     def cargar_productos(self):
         try:
             productos = self.inventario_controller.get_productos()
             for producto in productos:
-                # producto: (id, nombre, descripcion, cantidad, precio, categoria_id)
                 stock_text = f" (Stock: {producto[3]})" if len(producto) > 3 else ""
                 self.combo_producto.addItem(f"{producto[1]}{stock_text}", producto[0])
         except Exception as e:
@@ -351,6 +453,7 @@ class FormularioFactura(QDialog):
 
         self.actualizar_tabla_productos()
         self.calcular_totales()
+        # ✅ YA NO ES NECESARIO LLAMAR calcular_estado() AQUÍ PORQUE SE LLAMA EN calcular_totales()
         
         # Limpiar campos
         self.input_cantidad.setValue(1)
@@ -361,12 +464,23 @@ class FormularioFactura(QDialog):
         for row, producto in enumerate(self.productos_factura):
             self.tabla_productos.setItem(row, 0, QTableWidgetItem(producto['producto_nombre']))
             self.tabla_productos.setItem(row, 1, QTableWidgetItem(str(producto['cantidad'])))
-            self.tabla_productos.setItem(row, 2, QTableWidgetItem(f"${producto['precio']:,.2f}"))
-            self.tabla_productos.setItem(row, 3, QTableWidgetItem(f"${producto['subtotal']:,.2f}"))
+            
+            # Formatear precios
+            precio_formateado = f"{producto['precio']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+            subtotal_formateado = f"{producto['subtotal']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+            
+            precio_item = QTableWidgetItem(precio_formateado)
+            precio_item.setTextAlignment(Qt.AlignRight)
+            self.tabla_productos.setItem(row, 2, precio_item)
+            
+            subtotal_item = QTableWidgetItem(subtotal_formateado)
+            subtotal_item.setTextAlignment(Qt.AlignRight)
+            self.tabla_productos.setItem(row, 3, subtotal_item)
             
             btn_eliminar = QPushButton("")
             btn_eliminar.setObjectName("btnRojo")
             btn_eliminar.setIcon(QIcon("assets/trash.png"))
+            btn_eliminar.setToolTip("Eliminar")
             btn_eliminar.clicked.connect(lambda checked, r=row: self.eliminar_producto(r))
             self.tabla_productos.setCellWidget(row, 4, btn_eliminar)
 
@@ -374,44 +488,174 @@ class FormularioFactura(QDialog):
         del self.productos_factura[row]
         self.actualizar_tabla_productos()
         self.calcular_totales()
+        # ✅ YA NO ES NECESARIO LLAMAR calcular_estado() AQUÍ PORQUE SE LLAMA EN calcular_totales()
 
+    # ✅ MEJORAR MÉTODO: CALCULAR ESTADO AUTOMÁTICAMENTE
+    def calcular_estado(self):
+        """Calcular el estado de la factura basado en el saldo"""
+        try:
+            # Calcular total de la factura
+            subtotal = sum(p['subtotal'] for p in self.productos_factura)
+            
+            # ✅ SI NO HAY PRODUCTOS, MANTENER ESTADO PENDIENTE
+            if not self.productos_factura or subtotal == 0:
+                estado = "PENDIENTE"
+                self.label_estado.setText(estado)
+                self.label_estado.setStyleSheet("""
+                    QLabel {
+                        background-color: #fff3cd;
+                        color: #856404;
+                        border: 1px solid #ffeaa7;
+                        border-radius: 3px;
+                        padding: 6px;
+                        font-weight: bold;
+                    }
+                """)
+                return
+            
+            if self.check_iva.isChecked():
+                impuestos = subtotal * 0.19
+            else:
+                impuestos = 0.0
+                
+            total_factura = subtotal + impuestos
+            
+            # Obtener pago inicial
+            pago_inicial = self.pago_monto_input.value()
+            
+            # Calcular saldo pendiente
+            saldo_pendiente = total_factura - pago_inicial
+            
+            # Determinar estado basado en el saldo
+            if saldo_pendiente <= 0 and total_factura > 0:  # ✅ ASEGURAR QUE HAY TOTAL > 0
+                estado = "PAGADA"
+                self.label_estado.setText(estado)
+                self.label_estado.setStyleSheet("""
+                    QLabel {
+                        background-color: #d4edda;
+                        color: #155724;
+                        border: 1px solid #c3e6cb;
+                        border-radius: 3px;
+                        padding: 6px;
+                        font-weight: bold;
+                    }
+                """)
+            else:
+                estado = "PENDIENTE"
+                self.label_estado.setText(estado)
+                self.label_estado.setStyleSheet("""
+                    QLabel {
+                        background-color: #fff3cd;
+                        color: #856404;
+                        border: 1px solid #ffeaa7;
+                        border-radius: 3px;
+                        padding: 6px;
+                        font-weight: bold;
+                    }
+                """)
+                
+        except Exception as e:
+            print(f"Error calculando estado: {e}")
+            self.label_estado.setText("PENDIENTE")
+            self.label_estado.setStyleSheet("""
+                QLabel {
+                    background-color: #fff3cd;
+                    color: #856404;
+                    border: 1px solid #ffeaa7;
+                    border-radius: 3px;
+                    padding: 6px;
+                    font-weight: bold;
+                }
+            """)
+    
     def calcular_totales(self):
         subtotal = sum(p['subtotal'] for p in self.productos_factura)
         
-        # Calcular IVA solo si está marcado el checkbox
-        if self.check_iva.isChecked():
-            impuestos = subtotal * 0.19  # 19% de IVA
-        else:
-            impuestos = 0.0
-            
-        total = subtotal + impuestos
-        
-        self.label_subtotal.setText(f"${subtotal:,.2f}")
-        self.label_impuestos.setText(f"${impuestos:,.2f}")
-        self.label_total.setText(f"${total:,.2f}")
-
-    def get_data(self):
-        subtotal = sum(p['subtotal'] for p in self.productos_factura)
-        
-        # Calcular IVA basado en el checkbox
         if self.check_iva.isChecked():
             impuestos = subtotal * 0.19
         else:
             impuestos = 0.0
             
         total = subtotal + impuestos
+        
+        # Formatear con formato colombiano
+        self.label_subtotal.setText(f"{subtotal:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
+        self.label_impuestos.setText(f"{impuestos:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
+        self.label_total.setText(f"{total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
+        
+        # ✅ SOLO RECALCULAR ESTADO SI HAY PRODUCTOS
+        if self.productos_factura:
+            self.calcular_estado()
+
+    # ✅ CREAR MÉTODO ESPECÍFICO PARA CAMBIOS EN PAGO
+    def calcular_estado_por_pago(self):
+        """Recalcular estado solo cuando cambia el pago"""
+        if self.productos_factura:  # Solo si hay productos
+            self.calcular_estado()
+    
+    def generar_numero_factura(self):
+        """Generar número de factura automáticamente"""
+        try:
+            import random
+            from datetime import datetime
+            
+            # ✅ GENERAR NÚMERO COMPLETAMENTE AL AZAR
+            numero_aleatorio = random.randint(10000000, 99999999)  # 8 dígitos
+            numero_generado = f"F-{numero_aleatorio}"
+            
+            # ✅ VERIFICAR QUE NO EXISTA (OPCIONAL)
+            from controllers.facturas_controller import FacturasController
+            controller = FacturasController()
+            
+            # Si existe, generar otro
+            max_intentos = 10
+            for intento in range(max_intentos):
+                if not controller.existe_numero_factura(numero_generado):
+                    break
+                numero_aleatorio = random.randint(10000000, 99999999)
+                numero_generado = f"F-{numero_aleatorio}"
+            
+            self.input_numero.setText(numero_generado)
+            print(f"Número generado: {numero_generado}")
+            
+        except Exception as e:
+            print(f"Error generando número de factura: {e}")
+            # ✅ FALLBACK SIMPLE CON TIMESTAMP
+            import random
+            numero_fallback = f"F-{random.randint(10000000, 99999999)}"
+            self.input_numero.setText(numero_fallback)
+            print(f"Número fallback: {numero_fallback}")
+
+    # ✅ TU MÉTODO get_data EXISTENTE (sin cambios)
+    def get_data(self):
+        """Devolver datos del formulario"""
+        subtotal = sum(p['subtotal'] for p in self.productos_factura)
+        
+        if self.check_iva.isChecked():
+            impuestos = subtotal * 0.19
+        else:
+            impuestos = 0.0
+            
+        total = subtotal + impuestos
+        estado_calculado = self.label_estado.text()
+        
+        pago_monto_str = f"{self.pago_monto_input.value():.2f}" if self.pago_monto_input.value() > 0 else "0.00"
+        pago_metodo = self.pago_metodo_input.currentText()
+        pago_observaciones = self.pago_obs_input.text()
 
         return (
-            self.input_numero.text(),
+            self.input_numero.text(),  # ✅ USA EL NÚMERO GENERADO
             self.combo_cliente.currentData(),
             self.input_fecha.date().toString("yyyy-MM-dd"),
             total,
-            self.combo_estado.currentText(),  # Estado seleccionado
+            estado_calculado,
             subtotal,
             impuestos,
-            0.0,  # Retención
-            self.pago_monto_input.text(),      # Monto de pago inicial
-            self.pago_metodo_input.currentText(),  # Método de pago inicial
-            self.pago_obs_input.text(),        # Observaciones de pago inicial
-            self.productos_factura             # Lista de productos
+            0.0,  # descuento
+            pago_monto_str,
+            pago_metodo,
+            pago_observaciones,
+            self.productos_factura
         )
+
+    # ✅ RESTO DE TUS MÉTODOS EXISTENTES SIN CAMBIOS...

@@ -66,13 +66,39 @@ class PagosClienteModel:
         return self.cursor.fetchall()
 
     def get_pagos_por_factura(self, factura_id):
-        """Obtiene todos los pagos de una factura específica con información del cliente"""
-        self.cursor.execute("""
-            SELECT p.id, p.cliente_id, p.factura_id, p.monto, p.metodo_pago, 
-                   p.fecha_pago, p.observaciones, c.nombre_empresa || ' - ' || c.nombre_encargado as cliente_nombre
-            FROM pagos_cliente p
-            JOIN clientes c ON p.cliente_id = c.id
-            WHERE p.factura_id = ?
-            ORDER BY p.fecha_pago DESC
-        """, (factura_id,))
-        return self.cursor.fetchall()
+        """Obtener todos los pagos de una factura específica SIN el ID"""
+        try:
+            query = """
+                SELECT fecha_pago, monto, metodo_pago, observaciones
+                FROM pagos_cliente 
+                WHERE factura_id = ?
+                ORDER BY fecha_pago DESC
+            """
+            self.cursor.execute(query, (factura_id,))
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"Error obteniendo pagos de factura {factura_id}: {e}")
+            return []
+    
+    def get_pagos_por_factura_completo(self, factura_id):
+        try:
+            query = """
+                SELECT 
+                    p.id, 
+                    p.cliente_id, 
+                    p.factura_id, 
+                    p.monto, 
+                    p.metodo_pago, 
+                    p.fecha_pago, 
+                    p.observaciones,
+                    c.nombre_encargado as nombre_cliente
+                FROM pagos_cliente p
+                JOIN clientes c ON p.cliente_id = c.id
+                WHERE p.factura_id = ?
+                ORDER BY p.fecha_pago DESC
+            """
+            self.cursor.execute(query, (factura_id,))
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"Error obteniendo pagos completos de factura {factura_id}: {e}")
+            return []

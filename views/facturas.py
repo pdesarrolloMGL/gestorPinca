@@ -181,19 +181,36 @@ class Facturas(QWidget):
     def cargar_pagos_factura(self, factura_id):
         """Carga los pagos específicos de una factura seleccionada"""
         try:
-            pagos = self.pagos_controller.get_pagos_por_factura(factura_id)
+            # Usar el método completo para la vista de facturas
+            pagos = self.pagos_controller.get_pagos_por_factura_completo(factura_id)
             self.tabla_pagos.setRowCount(0)
+            
+            if not pagos:
+                # Si no hay pagos, mostrar mensaje
+                self.tabla_pagos.setRowCount(1)
+                item = QTableWidgetItem("No hay pagos registrados para esta factura")
+                item.setTextAlignment(Qt.AlignCenter)
+                self.tabla_pagos.setItem(0, 0, item)
+                self.tabla_pagos.setSpan(0, 0, 1, 5)  # Combinar todas las columnas
+                return
+            
             for pago in pagos:
                 row = self.tabla_pagos.rowCount()
                 self.tabla_pagos.insertRow(row)
                 # pago: (id, cliente_id, factura_id, monto, metodo_pago, fecha_pago, observaciones, nombre_cliente)
-                self.tabla_pagos.setItem(row, 0, QTableWidgetItem(str(pago[5])))  # fecha_pago
-                self.tabla_pagos.setItem(row, 1, QTableWidgetItem(f"${pago[3]:,.2f}"))  # monto
-                self.tabla_pagos.setItem(row, 2, QTableWidgetItem(str(pago[4])))  # metodo_pago
+                self.tabla_pagos.setItem(row, 0, QTableWidgetItem(str(pago[5]) if pago[5] else ""))  # fecha_pago
+                
+                # Formatear monto con formato colombiano
+                monto_formateado = "${:,.2f}".format(pago[3]).replace(',', 'TEMP').replace('.', ',').replace('TEMP', '.')
+                self.tabla_pagos.setItem(row, 1, QTableWidgetItem(monto_formateado))  # monto
+                
+                self.tabla_pagos.setItem(row, 2, QTableWidgetItem(str(pago[4]) if pago[4] else ""))  # metodo_pago
                 self.tabla_pagos.setItem(row, 3, QTableWidgetItem(str(pago[6]) if pago[6] else ""))  # observaciones
-                self.tabla_pagos.setItem(row, 4, QTableWidgetItem(str(pago[7]) if len(pago) > 7 else ""))  # nombre_cliente
+                self.tabla_pagos.setItem(row, 4, QTableWidgetItem(str(pago[7]) if pago[7] else ""))  # nombre_cliente
+                
         except Exception as e:
             print(f"Error cargando pagos de factura {factura_id}: {e}")
+            QMessageBox.warning(self, "Error", f"Error cargando pagos: {e}")
 
     def cargar_facturas(self):
         filtro = self.filtro_input.text()
@@ -312,3 +329,28 @@ class Facturas(QWidget):
 
         btn_guardar.clicked.connect(guardar)
         dialog.exec_()
+    
+    def nueva_factura(self):
+        try:
+            # ✅ TU CÓDIGO EXISTENTE SIN CAMBIOS
+            clientes_controller = ClientesController()
+            clientes = clientes_controller.get_clientes()
+            
+            if not clientes:
+                QMessageBox.warning(self, "Advertencia", "No hay clientes registrados.")
+                return
+            
+            dialog = FormularioFactura(clientes, self)
+            if dialog.exec_() == QDialog.Accepted:
+                data = dialog.get_data()
+                if data:
+                    # ✅ USAR TU CONTROLADOR COMO SIEMPRE
+                    if self.controller.create_factura(*data[:8]):  # Solo los primeros 8 campos
+                        QMessageBox.information(self, "Éxito", "Factura creada exitosamente.")
+                        self.cargar_facturas()
+                    else:
+                        QMessageBox.critical(self, "Error", "No se pudo crear la factura.")
+                        
+        except Exception as e:
+            print(f"Error creando factura: {e}")
+            QMessageBox.critical(self, "Error", f"Error inesperado: {e}")
