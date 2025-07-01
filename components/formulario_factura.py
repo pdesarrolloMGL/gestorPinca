@@ -16,36 +16,71 @@ class InputMoneda(QLineEdit):
     
     def __init__(self):
         super().__init__()
-        self.setPlaceholderText("0.00")
-        self.textChanged.connect(self.formatear_moneda)
+        self.setPlaceholderText("$0,00")
+        self.textChanged.connect(self.on_text_changed)
         self.setAlignment(Qt.AlignRight)
         self._value = 0.0
+        self._updating = False  # ✅ BANDERA PARA EVITAR RECURSIÓN
         
-    def formatear_moneda(self, text):
-        # Remover caracteres no numéricos excepto punto y coma
-        text_limpio = re.sub(r'[^\d.,]', '', text)
+    def on_text_changed(self, text):
+        if self._updating:  # ✅ EVITAR BUCLE INFINITO
+            return
+            
+        # ✅ EXTRAER SOLO NÚMEROS
+        numeros = re.sub(r'[^\d]', '', text)
         
-        if not text_limpio:
+        if not numeros:
             self._value = 0.0
             self.valueChanged.emit(0.0)
             return
         
-        # Convertir coma a punto para cálculos
-        text_para_calculo = text_limpio.replace(',', '.')
-        
         try:
-            self._value = float(text_para_calculo)
+            # ✅ CONVERTIR A CENTAVOS Y LUEGO A PESOS
+            valor_centavos = int(numeros)
+            self._value = valor_centavos / 100.0
             self.valueChanged.emit(self._value)
+            
+            # ✅ FORMATEAR EN TIEMPO REAL
+            self._updating = True  # Activar bandera
+            formatted = f"${self._value:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+            
+            # ✅ MANTENER POSICIÓN DEL CURSOR
+            cursor_pos = self.cursorPosition()
+            self.setText(formatted)
+            # Ajustar cursor al final para mejor UX
+            self.setCursorPosition(len(formatted))
+            self._updating = False  # Desactivar bandera
+            
         except ValueError:
             self._value = 0.0
             self.valueChanged.emit(0.0)
+    
+    def focusOutEvent(self, event):
+        """Formatear cuando pierde el foco"""
+        if self._value > 0:
+            self._updating = True
+            formatted = f"${self._value:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+            self.setText(formatted)
+            self._updating = False
+        super().focusOutEvent(event)
+    
+    def focusInEvent(self, event):
+        """Seleccionar todo cuando gana foco para fácil edición"""
+        super().focusInEvent(event)
+        self.selectAll()  # ✅ SELECCIONAR TODO PARA FÁCIL REEMPLAZO
     
     def value(self):
         return self._value
     
     def setValue(self, valor):
         self._value = valor
-        self.setText(f"{valor:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
+        self._updating = True
+        if valor > 0:
+            formatted = f"${valor:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+            self.setText(formatted)
+        else:
+            self.setText("")
+        self._updating = False
 
 class FormularioFactura(QDialog):
     def __init__(self, clientes, parent=None):
@@ -66,8 +101,10 @@ class FormularioFactura(QDialog):
                 color: #333333;
                 border: 1px solid #cccccc;
                 border-radius: 4px;
-                margin-top: 10px;
-                padding-top: 5px;
+                margin-top: 15px;        /* ✅ MÁS ESPACIO ARRIBA */
+                margin-bottom: 15px;     /* ✅ MÁS ESPACIO ABAJO */
+                padding-top: 10px;       /* ✅ MÁS PADDING INTERNO */
+                padding-bottom: 5px;     /* ✅ ESPACIO INTERNO ABAJO */
                 background-color: #fafafa;
             }
             
@@ -75,7 +112,8 @@ class FormularioFactura(QDialog):
                 subcontrol-origin: margin;
                 left: 10px;
                 padding: 0 8px;
-                background-color: transparent;  /* ✅ FONDO TRANSPARENTE */
+                margin-bottom: 8px;      /* ✅ SEPARACIÓN DEL TÍTULO */
+                background-color: transparent;
                 color: #333333;
             }
             
@@ -227,7 +265,7 @@ class FormularioFactura(QDialog):
         # ✅ FILA 2 - CLIENTE Y ESTADO
         info_layout.addWidget(QLabel("Cliente:"), 1, 0)
         self.combo_cliente = QComboBox()
-        self.combo_cliente.setMinimumWidth(400)
+        self.combo_cliente.setMinimumWidth(500)  # ✅ Más ancho
         for cliente in clientes:
             nombre = f"{cliente[1]} - {cliente[2]}" if cliente[2] else cliente[1]
             self.combo_cliente.addItem(nombre, cliente[0])
@@ -387,8 +425,8 @@ class FormularioFactura(QDialog):
         right_column.addWidget(productos_group)
         
         # Agregar columnas al layout principal con mejor proporción
-        content_layout.addLayout(left_column, 1)    # ✅ Columna izquierda 1 parte
-        content_layout.addLayout(right_column, 3)   # ✅ Columna derecha 3 partes (más espacio)
+        content_layout.addLayout(left_column, 2)    # ✅ Columna izquierda MÁS ANCHA
+        content_layout.addLayout(right_column, 2)   # ✅ Columna derecha proporcionalmente ajustada
         
         main_layout.addLayout(content_layout)
         
@@ -657,5 +695,3 @@ class FormularioFactura(QDialog):
             pago_observaciones,
             self.productos_factura
         )
-
-    # ✅ RESTO DE TUS MÉTODOS EXISTENTES SIN CAMBIOS...

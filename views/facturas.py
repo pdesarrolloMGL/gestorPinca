@@ -62,9 +62,9 @@ class Facturas(QWidget):
 
         # Tabla de facturas
         self.tabla = QTableWidget()
-        self.tabla.setColumnCount(7)
+        self.tabla.setColumnCount(8)  # ✅ CAMBIAR DE 7 A 8 COLUMNAS
         self.tabla.setHorizontalHeaderLabels([
-            "N° Factura", "Cliente", "Fecha", "Total", "Estado", "Subtotal", "Impuestos"
+            "N° Factura", "Cliente", "Fecha", "Total", "Estado", "Subtotal", "Impuestos", "Saldo"  # ✅ AGREGAR SALDO
         ])
         self.tabla.horizontalHeader().setStretchLastSection(True)
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -105,9 +105,9 @@ class Facturas(QWidget):
 
         # Tabla de pagos
         self.tabla_pagos = QTableWidget()
-        self.tabla_pagos.setColumnCount(5)
+        self.tabla_pagos.setColumnCount(5)  # ✅ VOLVER A 5 COLUMNAS
         self.tabla_pagos.setHorizontalHeaderLabels([
-            "Fecha", "Monto", "Método", "Observaciones", "Cliente"
+            "Fecha", "Monto", "Método", "Observaciones", "Cliente"  # ✅ SIN SALDO
         ])
         self.tabla_pagos.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.tabla_pagos.verticalHeader().setVisible(False)
@@ -147,6 +147,12 @@ class Facturas(QWidget):
         self.btn_registrar_pago.clicked.connect(self.registrar_pago_factura)
         btn_layout.addWidget(self.btn_registrar_pago)
 
+        # Botón para ver todos los pagos
+        self.btn_ver_todos = QPushButton("Ver Todos los Pagos")
+        self.btn_ver_todos.setObjectName("btnAzul")
+        self.btn_ver_todos.clicked.connect(self.cargar_todos_los_pagos)  # ✅ MÉTODO SIMPLE
+        btn_layout.addWidget(self.btn_ver_todos)
+
         layout.addLayout(btn_layout)
 
         # Cargar datos iniciales
@@ -166,47 +172,83 @@ class Facturas(QWidget):
         try:
             pagos = self.pagos_controller.get_todos_los_pagos()
             self.tabla_pagos.setRowCount(0)
+            
             for pago in pagos:
                 row = self.tabla_pagos.rowCount()
                 self.tabla_pagos.insertRow(row)
-                # pago: (id, cliente_id, factura_id, monto, metodo_pago, fecha_pago, observaciones, nombre_cliente)
-                self.tabla_pagos.setItem(row, 0, QTableWidgetItem(str(pago[5])))  # fecha_pago
-                self.tabla_pagos.setItem(row, 1, QTableWidgetItem(f"${pago[3]:,.2f}"))  # monto
-                self.tabla_pagos.setItem(row, 2, QTableWidgetItem(str(pago[4])))  # metodo_pago
-                self.tabla_pagos.setItem(row, 3, QTableWidgetItem(str(pago[6]) if pago[6] else ""))  # observaciones
-                self.tabla_pagos.setItem(row, 4, QTableWidgetItem(str(pago[7]) if len(pago) > 7 else ""))  # nombre_cliente
+                
+                # ✅ FECHA
+                fecha_item = QTableWidgetItem(str(pago[5]))
+                fecha_item.setTextAlignment(Qt.AlignCenter)
+                self.tabla_pagos.setItem(row, 0, fecha_item)
+                
+                # ✅ MONTO
+                monto_formateado = self.formatear_moneda(pago[3])
+                monto_item = QTableWidgetItem(monto_formateado)
+                monto_item.setTextAlignment(Qt.AlignCenter)
+                self.tabla_pagos.setItem(row, 1, monto_item)
+                
+                # ✅ MÉTODO
+                metodo_item = QTableWidgetItem(str(pago[4]))
+                metodo_item.setTextAlignment(Qt.AlignCenter)
+                self.tabla_pagos.setItem(row, 2, metodo_item)
+                
+                # ✅ OBSERVACIONES
+                obs_item = QTableWidgetItem(str(pago[6]) if pago[6] else "")
+                obs_item.setTextAlignment(Qt.AlignCenter)
+                self.tabla_pagos.setItem(row, 3, obs_item)
+                
+                # ✅ CLIENTE
+                cliente_item = QTableWidgetItem(str(pago[7]) if len(pago) > 7 else "")
+                cliente_item.setTextAlignment(Qt.AlignCenter)
+                self.tabla_pagos.setItem(row, 4, cliente_item)
+                
         except Exception as e:
             print(f"Error cargando todos los pagos: {e}")
 
     def cargar_pagos_factura(self, factura_id):
         """Carga los pagos específicos de una factura seleccionada"""
         try:
-            # Usar el método completo para la vista de facturas
             pagos = self.pagos_controller.get_pagos_por_factura_completo(factura_id)
             self.tabla_pagos.setRowCount(0)
             
             if not pagos:
-                # Si no hay pagos, mostrar mensaje
                 self.tabla_pagos.setRowCount(1)
                 item = QTableWidgetItem("No hay pagos registrados para esta factura")
                 item.setTextAlignment(Qt.AlignCenter)
                 self.tabla_pagos.setItem(0, 0, item)
-                self.tabla_pagos.setSpan(0, 0, 1, 5)  # Combinar todas las columnas
+                self.tabla_pagos.setSpan(0, 0, 1, 5)  # ✅ VOLVER A 5 COLUMNAS
                 return
             
             for pago in pagos:
                 row = self.tabla_pagos.rowCount()
                 self.tabla_pagos.insertRow(row)
-                # pago: (id, cliente_id, factura_id, monto, metodo_pago, fecha_pago, observaciones, nombre_cliente)
-                self.tabla_pagos.setItem(row, 0, QTableWidgetItem(str(pago[5]) if pago[5] else ""))  # fecha_pago
                 
-                # Formatear monto con formato colombiano
-                monto_formateado = "${:,.2f}".format(pago[3]).replace(',', 'TEMP').replace('.', ',').replace('TEMP', '.')
-                self.tabla_pagos.setItem(row, 1, QTableWidgetItem(monto_formateado))  # monto
+                # ✅ FECHA
+                fecha_item = QTableWidgetItem(str(pago[5]) if pago[5] else "")
+                fecha_item.setTextAlignment(Qt.AlignCenter)
+                self.tabla_pagos.setItem(row, 0, fecha_item)
                 
-                self.tabla_pagos.setItem(row, 2, QTableWidgetItem(str(pago[4]) if pago[4] else ""))  # metodo_pago
-                self.tabla_pagos.setItem(row, 3, QTableWidgetItem(str(pago[6]) if pago[6] else ""))  # observaciones
-                self.tabla_pagos.setItem(row, 4, QTableWidgetItem(str(pago[7]) if pago[7] else ""))  # nombre_cliente
+                # ✅ MONTO
+                monto_formateado = self.formatear_moneda(pago[3])
+                monto_item = QTableWidgetItem(monto_formateado)
+                monto_item.setTextAlignment(Qt.AlignCenter)
+                self.tabla_pagos.setItem(row, 1, monto_item)
+                
+                # ✅ MÉTODO
+                metodo_item = QTableWidgetItem(str(pago[4]) if pago[4] else "")
+                metodo_item.setTextAlignment(Qt.AlignCenter)
+                self.tabla_pagos.setItem(row, 2, metodo_item)
+                
+                # ✅ OBSERVACIONES
+                obs_item = QTableWidgetItem(str(pago[6]) if pago[6] else "")
+                obs_item.setTextAlignment(Qt.AlignCenter)
+                self.tabla_pagos.setItem(row, 3, obs_item)
+                
+                # ✅ CLIENTE
+                cliente_item = QTableWidgetItem(str(pago[7]) if pago[7] else "")
+                cliente_item.setTextAlignment(Qt.AlignCenter)
+                self.tabla_pagos.setItem(row, 4, cliente_item)
                 
         except Exception as e:
             print(f"Error cargando pagos de factura {factura_id}: {e}")
@@ -216,26 +258,55 @@ class Facturas(QWidget):
         filtro = self.filtro_input.text()
         facturas = self.controller.get_facturas(filtro)
         self.tabla.setRowCount(0)
+        
+        # ✅ OBTENER IDS DE FACTURAS PARA CALCULAR SALDOS
+        facturas_ids = [factura[0] for factura in facturas]  # factura[0] es el ID
+        saldos = self.controller.calcular_saldos_multiples(facturas_ids)  # ✅ CALCULAR SALDOS
+        
         for factura in facturas:
             row = self.tabla.rowCount()
             self.tabla.insertRow(row)
+            
+            # ✅ PRIMERAS 7 COLUMNAS (DATOS EXISTENTES)
             for col, value in enumerate(factura[1:8]):  # Solo las primeras 7 columnas para mostrar
                 item = QTableWidgetItem(str(value))
                 item.setTextAlignment(Qt.AlignCenter)
+                
+                # ✅ FORMATEAR COLUMNAS DE DINERO (Total, Subtotal, Impuestos)
+                if col in [3, 5, 6]:  # Columnas: Total, Subtotal, Impuestos
+                    try:
+                        valor_numerico = float(value)
+                        # Formato colombiano: $1.500,00
+                        valor_formateado = self.formatear_moneda(valor_numerico)
+                        item = QTableWidgetItem(valor_formateado)
+                        item.setTextAlignment(Qt.AlignCenter)
+                    except (ValueError, TypeError):
+                        item = QTableWidgetItem(str(value))
+                        item.setTextAlignment(Qt.AlignCenter)
                 
                 # Guarda el cliente_id en el UserRole de la columna 1 (Cliente)
                 if col == 1:
                     item.setData(Qt.UserRole, factura[8])  # factura[8] es el cliente_id
                 
-                # Aplicar color amarillo a la columna de Subtotal (columna 5)
-                if col == 4 and str(value).upper() == "PENDIENTE":  # Subtotal
+                # Aplicar color amarillo a la columna de Estado si es "PENDIENTE"
+                if col == 4 and str(value).upper() == "PENDIENTE":
                     item.setBackground(QColor(255, 255, 102))
                 
-                # Aplicar color verde a la columna de Estado si es "PAGADA" (columna 4)
-                if col == 4 and str(value).upper() == "PAGADA":  # Estado
+                # Aplicar color verde a la columna de Estado si es "PAGADA"
+                if col == 4 and str(value).upper() == "PAGADA":
                     item.setBackground(QColor(144, 238, 144))
                 
                 self.tabla.setItem(row, col, item)
+            
+            # ✅ COLUMNA 8: SALDO (NUEVA)
+            factura_id = factura[0]  # ID de la factura
+            saldo = saldos.get(factura_id, 0.0)
+            saldo_formateado = self.formatear_moneda(saldo)
+            saldo_item = QTableWidgetItem(saldo_formateado)
+            saldo_item.setTextAlignment(Qt.AlignCenter)
+            self.aplicar_color_saldo(saldo_item, saldo)  # ✅ APLICAR COLOR
+            self.tabla.setItem(row, 7, saldo_item)  # ✅ COLUMNA 7 (índice 7)
+            
             vh_item = QTableWidgetItem(str(factura[0]))
             vh_item.setTextAlignment(Qt.AlignCenter)
             self.tabla.setVerticalHeaderItem(row, vh_item)
@@ -250,7 +321,7 @@ class Facturas(QWidget):
             pago_obs = datos[-2]
             pago_metodo = datos[-3]
             pago_monto = datos[-4]
-            datos_factura = datos[:8]  # Asegúrate que estos son: numero, cliente_id, fecha_emision, total, estado, subtotal, impuestos, retencion
+            datos_factura = datos[:8]
             cliente_id = datos[1]
 
             if not productos:
@@ -258,8 +329,11 @@ class Facturas(QWidget):
                 return
 
             try:
+                # ✅ GUARDAR FACTURA
                 factura_id = self.controller.agregar_factura(*datos_factura)
-                # Agregar productos y descontar inventario
+                numero_factura = datos_factura[0]
+                
+                # ✅ AGREGAR PRODUCTOS A DETALLE_FACTURA
                 from controllers.detalle_factura_controller import DetalleFacturaController
                 detalle_controller = DetalleFacturaController()
                 for producto in productos:
@@ -269,15 +343,22 @@ class Facturas(QWidget):
                         producto['cantidad'],
                         producto['precio']
                     )
-                # Registrar pago si se ingresó monto
+                
+                # ✅ REGISTRAR PAGO SI SE INGRESÓ MONTO
                 if pago_monto and float(pago_monto) > 0:
                     self.pagos_controller.registrar_pago(
                         cliente_id, factura_id, float(pago_monto), pago_metodo, pago_obs
                     )
+                
+                # ✅ ACTUALIZAR INTERFACES
                 self.cargar_facturas()
                 self.cargar_todos_los_pagos()
                 QMessageBox.information(self, "Éxito", "Factura creada y pago registrado.")
+                
             except Exception as e:
+                print(f"❌ Error al crear factura: {e}")
+                import traceback
+                print(f"❌ Traceback: {traceback.format_exc()}")
                 QMessageBox.critical(self, "Error", f"Error al crear factura: {str(e)}")
 
     def eliminar_factura(self):
@@ -354,3 +435,25 @@ class Facturas(QWidget):
         except Exception as e:
             print(f"Error creando factura: {e}")
             QMessageBox.critical(self, "Error", f"Error inesperado: {e}")
+
+    def formatear_moneda(self, valor):
+        """Formatear valor numérico como moneda colombiana"""
+        try:
+            valor_float = float(valor)
+            # Formato colombiano: $1.500,00
+            return f"${valor_float:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+        except (ValueError, TypeError):
+            return f"${valor}"
+
+    def aplicar_color_saldo(self, item, saldo):
+        """Aplicar color al item según el saldo"""
+        try:
+            if float(saldo) <= 0:
+                # Saldo 0 o negativo = Verde (pagado)
+                item.setBackground(QColor(144, 238, 144))
+            else:
+                # Saldo positivo = Amarillo (pendiente)
+                item.setBackground(QColor(255, 255, 102))
+        except (ValueError, TypeError):
+            # Si no se puede convertir, no aplicar color
+            pass

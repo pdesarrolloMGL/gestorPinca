@@ -6,7 +6,6 @@ from views.formulaciones import Formulaciones
 from views.ordenes_produccion import OrdenesProduccion  
 from views.clientes import Clientes
 from views.facturas import Facturas
-from views.movimientos_inventario import MovimientosInventario
 
 class Menu(QMainWindow):
     def __init__(self):
@@ -53,7 +52,6 @@ class Menu(QMainWindow):
         ordenes_widget = OrdenesProduccion()  # NUEVO
         clientes_widget = Clientes()  # Placeholder para Costos
         facturas_widget = Facturas()  # Placeholder para Facturación
-        movimientos_widget = MovimientosInventario()
         # CONECTA LA SEÑAL AQUÍ
         inventario_widget.producto_agregado.connect(formulaciones_widget.recargar_productos)
 
@@ -63,8 +61,7 @@ class Menu(QMainWindow):
             "Producción": ordenes_widget,  # NUEVO
             # "Clientes": Clientes(),
             "Clientes": clientes_widget,
-            "Facturación": facturas_widget,
-            "Movimientos": movimientos_widget
+            "Facturación": facturas_widget
         }
 
         self.stack = QStackedWidget()

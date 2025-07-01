@@ -19,11 +19,6 @@ class DetalleFacturaModel:
             (cantidad, item_id)
         )
         
-        # Registrar movimiento de inventario
-        from controllers.movimientos_inventario_controller import MovimientosInventarioController
-        movimientos_controller = MovimientosInventarioController()
-        movimientos_controller.registrar_salida_venta(item_id, cantidad, factura_id)
-        
         self.conn.commit()
         return self.cursor.lastrowid
 
@@ -52,18 +47,7 @@ class DetalleFacturaModel:
             "UPDATE inventario SET cantidad = cantidad + ? WHERE item_id = ?",
             (cantidad, item_id)
         )
-        
-        # Registrar movimiento de inventario
-        from controllers.movimientos_inventario_controller import MovimientosInventarioController
-        movimientos_controller = MovimientosInventarioController()
-        movimientos_controller.registrar_movimiento(
-            item_id, 
-            'entrada', 
-            cantidad, 
-            descripcion, 
-            referencia_id, 
-            referencia_tipo
-        )
+
         
         self.conn.commit()
         return True

@@ -59,3 +59,32 @@ class FacturasController:
         except Exception as e:
             print(f"Error eliminando factura: {e}")
             return False
+
+    # ✅ NUEVOS MÉTODOS PARA SALDOS
+    def calcular_saldo_factura(self, factura_id):
+        """Obtener saldo de una factura específica"""
+        try:
+            return self.model.calcular_saldo_factura(factura_id)
+        except Exception as e:
+            print(f"Error calculando saldo de factura {factura_id}: {e}")
+            return 0.0
+
+    def calcular_saldos_multiples(self, facturas_ids):
+        """Calcular saldos de múltiples facturas"""
+        return self.model.calcular_saldos_multiples(facturas_ids)
+
+    def obtener_facturas_pendientes(self):
+        """Obtener todas las facturas con saldo pendiente"""
+        try:
+            return self.model.obtener_facturas_pendientes()
+        except Exception as e:
+            print(f"Error obteniendo facturas pendientes: {e}")
+            return []
+
+    def obtener_resumen_saldos(self):
+        """Obtener resumen de saldos por cliente"""
+        try:
+            return self.model.obtener_resumen_saldos()
+        except Exception as e:
+            print(f"Error obteniendo resumen de saldos: {e}")
+            return []

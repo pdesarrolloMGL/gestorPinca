@@ -101,4 +101,111 @@ class FacturasModel:
             # Número de emergencia
             timestamp = int(datetime.now().timestamp())
             return f"FAC-{timestamp}"
+        
+    def calcular_saldo_factura(self, factura_id):
+        """Calcula el saldo pendiente de una factura específica"""
+        try:
+            # ✅ CORREGIR: USAR self.cursor (NO self.controller.cursor)
+            query_factura = "SELECT total FROM facturas WHERE id = ?"
+            self.cursor.execute(query_factura, (factura_id,))
+            resultado_factura = self.cursor.fetchone()
+            
+            if not resultado_factura:
+                return 0.0
+                
+            total_factura = resultado_factura[0]
+            
+            # ✅ OBTENER SUMA DE PAGOS DE LA FACTURA
+            query_pagos = "SELECT IFNULL(SUM(monto), 0) FROM pagos_cliente WHERE factura_id = ?"
+            self.cursor.execute(query_pagos, (factura_id,))
+            resultado_pagos = self.cursor.fetchone()
+            
+            total_pagos = resultado_pagos[0] if resultado_pagos else 0.0
+            
+            # ✅ CALCULAR SALDO = TOTAL - PAGOS
+            saldo = total_factura - total_pagos
+            return max(0.0, saldo)  # No permitir saldos negativos
+            
+        except Exception as e:
+            print(f"Error calculando saldo de factura {factura_id}: {e}")
+            return 0.0
     
+    def obtener_facturas_pendientes(self):
+        """Obtener facturas que tienen saldo pendiente"""
+        try:
+            query = """
+                SELECT 
+                    f.id, f.numero, f.cliente_id, f.fecha_emision, f.total, f.estado,
+                    c.nombre_encargado, c.nombre_empresa,
+                    (f.total - IFNULL(SUM(p.monto), 0)) as saldo_pendiente
+                FROM facturas f
+                LEFT JOIN clientes c ON f.cliente_id = c.id
+                LEFT JOIN pagos_cliente p ON f.id = p.factura_id
+                GROUP BY f.id, f.numero, f.cliente_id, f.fecha_emision, f.total, f.estado, c.nombre_encargado, c.nombre_empresa
+                HAVING saldo_pendiente > 0
+                ORDER BY f.fecha_emision DESC
+            """
+            self.cursor.execute(query)
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"Error obteniendo facturas pendientes: {e}")
+            return []
+
+    def obtener_resumen_saldos(self):
+        """Obtener resumen de saldos por cliente"""
+        try:
+            query = """
+                SELECT 
+                    c.id, c.nombre_encargado, c.nombre_empresa,
+                    COUNT(f.id) as total_facturas,
+                    SUM(f.total) as total_facturado,
+                    IFNULL(SUM(p.monto), 0) as total_pagado,
+                    (SUM(f.total) - IFNULL(SUM(p.monto), 0)) as saldo_pendiente
+                FROM clientes c
+                LEFT JOIN facturas f ON c.id = f.cliente_id
+                LEFT JOIN pagos_cliente p ON f.id = p.factura_id
+                WHERE f.id IS NOT NULL
+                GROUP BY c.id, c.nombre_encargado, c.nombre_empresa
+                HAVING saldo_pendiente > 0
+                ORDER BY saldo_pendiente DESC
+            """
+            self.cursor.execute(query)
+            return self.cursor.fetchall()
+        except Exception as e:
+            print(f"Error obteniendo resumen de saldos: {e}")
+            return []
+    
+    def calcular_saldos_multiples(self, facturas_ids):
+        """Calcular saldos de múltiples facturas de una vez"""
+        if not facturas_ids:
+            return {}
+        
+        try:
+            # Crear placeholders para la consulta IN
+            placeholders = ','.join(['?' for _ in facturas_ids])
+            
+            query = f"""
+                SELECT 
+                    f.id,
+                    f.total,
+                    IFNULL(SUM(p.monto), 0) as total_pagado,
+                    (f.total - IFNULL(SUM(p.monto), 0)) as saldo
+                FROM facturas f
+                LEFT JOIN pagos_cliente p ON f.id = p.factura_id
+                WHERE f.id IN ({placeholders})
+                GROUP BY f.id, f.total
+            """
+            
+            self.cursor.execute(query, facturas_ids)
+            resultados = self.cursor.fetchall()
+            
+            # Convertir a diccionario {factura_id: saldo}
+            saldos = {}
+            for factura_id, total, total_pagado, saldo in resultados:
+                saldos[factura_id] = max(0.0, float(saldo))  # No permitir saldos negativos
+            
+            return saldos
+            
+        except Exception as e:
+            print(f"Error calculando saldos múltiples: {e}")
+            return {}
